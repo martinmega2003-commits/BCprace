@@ -1,0 +1,26 @@
+node_modules/
+apps/*/node_modules/
+
+# Build outputs
+apps/web/.next/
+apps/mobile/.expo/
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
