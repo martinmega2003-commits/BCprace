@@ -1,26 +1,97 @@
-export async function GET() {
-  const accessToken = process.env.STRAVA_ACCESS_TOKEN;
+import { prisma } from "@/app/lib/prisma";
 
-  if (!accessToken) {
+
+
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+
+    const athleteIdParam = searchParams.get("athleteId");
+
+  if (!athleteIdParam) {
     return Response.json(
-      { error: "Chybi STRAVA_ACCESS_TOKEN v .env.local" },
-      { status: 500 }
+      { error: "Chybi AthleteID v query" },
+      { status: 400 }
+    );
+  }
+  const athleteId = Number(athleteIdParam);
+
+  if(!Number.isInteger(athleteId)){
+      return Response.json(
+    { error: "athleteId musi byt cislo" },
+    { status: 400 }
+  );
+}
+
+const account = await prisma.stravaAccount.findUnique({
+  where: { stravaAthleteId: athleteId },
+});
+
+if (!account) {
+
+  return Response.json(
+    { error: "Strava ucet nebyl nalezen v DB" },
+    { status: 404 }
+  );
+}
+    const nowInSeconds = Math.floor(Date.now() / 1000);
+    const isExpired = account.expiresAt <= nowInSeconds + 60;
+
+
+
+
+if (isExpired) {
+  const refreshRes = await fetch("https://www.strava.com/oauth/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      client_id: process.env.STRAVA_CLIENT_ID ?? "",
+      client_secret: process.env.STRAVA_CLIENT_SECRET ?? "",
+      grant_type: "refresh_token",
+      refresh_token: account.refreshToken,
+    }),
+  });
+
+  const refreshData = await refreshRes.json();
+
+  if (!refreshRes.ok) {
+    return Response.json(
+      {
+        message: "Refresh failed",
+        refreshStatus: refreshRes.status,
+        refreshData,
+      },
+      { status: 400 }
     );
   }
 
-  const stravaRes = await fetch("https://www.strava.com/api/v3/athlete", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
+  const updatedAccount = await prisma.stravaAccount.update({
+    where: { stravaAthleteId: account.stravaAthleteId },
+    data: {
+      accessToken: refreshData.access_token,
+      refreshToken: refreshData.refresh_token,
+      expiresAt: refreshData.expires_at,
     },
-      cache: "no-store",
-  signal: AbortSignal.timeout(10000),
-});
-  
-
-  const data = await stravaRes.json();
+  });
 
   return Response.json({
-    stravaStatus: stravaRes.status,
-    data,
+    message: "Refresh + save OK",
+    athleteId: updatedAccount.stravaAthleteId,
+    expiresAt: updatedAccount.expiresAt,
   });
+}
+
+
+
+return Response.json({
+  message: "Account loaded",
+  athleteId: account.stravaAthleteId,
+  expiresAt: account.expiresAt,
+  nowInSeconds,
+  isExpired,
+});
+
+
 }
