@@ -5,7 +5,12 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
 
-    const athleteIdParam = searchParams.get("athleteId")
+    const cookieHeader = request.headers.get("cookie") ?? "";
+    const cookieMatch = cookieHeader.match(/(?:^|;\s*)stravaAthleteId=([^;]+)/);
+    const athleteIdFromCookie = cookieMatch?.[1] ?? null;
+
+    const athleteIdParam = searchParams.get("athleteId") ?? athleteIdFromCookie;
+
 
       if (!athleteIdParam) {
         return Response.json(
@@ -26,7 +31,6 @@ const account =  await prisma.stravaAccount.findUnique({
 where: { stravaAthleteId: athleteId },
 })
 
-
 if(!account){
 
   return Response.json(
@@ -36,13 +40,14 @@ if(!account){
 }
 
 
-const stravaRes = await fetch("https://www.strava.com/api/v3/athlete/activities", {
+const stravaRes = await fetch("https://www.strava.com/api/v3/athlete/activities?per_page=1", {
   headers: {
     Authorization: `Bearer ${account.accessToken}`,
   },
 });
 
 const activities = await stravaRes.json();
+const firstActivity = Array.isArray(activities) ? activities[0] ?? null : null;
 
 
 return Response.json({
@@ -50,7 +55,7 @@ return Response.json({
   athleteId: account.stravaAthleteId,
   stravaStatus: stravaRes.status,
   count: Array.isArray(activities) ? activities.length : null,
-  activities,
+  firstActivity,
 });
 
 }

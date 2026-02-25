@@ -11,4 +11,5 @@ export async function GET() {
   url.searchParams.set("scope", "read,activity:read_all");
 
   return NextResponse.redirect(url);
+
 }

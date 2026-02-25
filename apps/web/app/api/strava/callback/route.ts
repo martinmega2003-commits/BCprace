@@ -1,4 +1,6 @@
 import { prisma } from "@/app/lib/prisma";
+import { NextResponse } from "next/server";
+
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -67,13 +69,16 @@ const savedAccount = await prisma.stravaAccount.upsert({
   },
 });
 
-return Response.json({
+const response = Response.json({
   message: "Token exchange + save OK",
-  stravaStatus: stravaRes.status,
   athleteId: savedAccount.stravaAthleteId,
 });
 
+response.headers.append(
+  "Set-Cookie",
+  `stravaAthleteId=${savedAccount.stravaAthleteId}; Path=/; HttpOnly; SameSite=Lax`
+);
+
+return response;
 
 }
-
-
