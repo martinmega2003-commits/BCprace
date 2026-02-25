@@ -1,5 +1,4 @@
 import { prisma } from "@/app/lib/prisma";
-import { NextResponse } from "next/server";
 
 
 export async function GET(request: Request) {
@@ -69,8 +68,9 @@ const savedAccount = await prisma.stravaAccount.upsert({
   },
 });
 
+
 const response = Response.json({
-  message: "Token exchange + save OK",
+  message: "ALL GOOD GET BACK TO APP",
   athleteId: savedAccount.stravaAthleteId,
 });
 
