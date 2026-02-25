@@ -19,7 +19,56 @@ export default function HomeScreen() {
   const [message, setMessage] = useState("Načítání...");
   const [activities, setActivities] = useState<any[]>([]);
   const [athleteId, setAthleteId] = useState<string | null>(null);
- 
+
+  async function syncLatestLoggedUser() {
+    try {
+      const res = await fetch("http://192.168.50.214:3000/api/strava/latest-account");
+      const data = await res.json();
+
+      if (data.error) {
+        setMessage(data.error);
+        return;
+      }
+
+      if (data.athleteId) {
+        setAthleteId(String(data.athleteId));
+      }
+    } catch (error) {
+      console.log("latest-account error:", error);
+    }
+  }
+
+  async function handleLoginPress() {
+    await WebBrowser.openBrowserAsync("http://192.168.50.214:3000/api/strava/auth");
+    await syncLatestLoggedUser();
+  }
+
+  async function handleLogout() {
+    try {
+      if (athleteId) {
+        const res = await fetch("http://192.168.50.214:3000/api/strava/logout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ athleteId }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          setMessage(data.error ?? "Logout se nepovedl");
+          return;
+        }
+      }
+
+      setAthleteId(null);
+      setActivities([]);
+      setMessage("Nejprve se prihlas");
+    } catch (error) {
+      console.log("logout error:", error);
+      setMessage("Chyba pri odhlaseni");
+    }
+  }
+  
   function handleAuthUrl(url: string) {
   console.log("DEEPLINK URL:", url);
   const parsed = new URL(url);
@@ -52,18 +101,29 @@ useEffect(() => {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 8000);
 
+  if (!athleteId) {
+  setMessage("Nejprve se přihlas");
+  return;
+}
+
 
   async function loadGreeting() {
     try {
        const res = await fetch(
-  `http://192.168.50.214:3000/api/strava/activities`,
+  `http://192.168.50.214:3000/api/strava/activities?athleteId=${athleteId}`,
   {
     signal: controller.signal,
   }
 );
 
+
       const data = await res.json();
+
       console.log("activities response:", data);
+      if (data.error) {
+      setMessage(data.error);
+      return;
+      }
       setActivities(data.firstActivity ? [data.firstActivity] : []);
       setMessage("Načteno");
     } catch (e) {
@@ -79,7 +139,10 @@ useEffect(() => {
     clearTimeout(t);
     controller.abort();
   };
-}, []);
+  
+}, [athleteId]);
+
+
 
 return (
   
@@ -87,16 +150,19 @@ return (
     <Text style={{ color: "black", fontSize: 24 }}>{message}</Text>
     <Text style={{ color: "black" }}>athleteId: {athleteId ?? "null"}</Text>
 
-        <Button
-  title="Přihlásit přes Stravu"
-  onPress={() => WebBrowser.openBrowserAsync("http://192.168.50.214:3000/login")}
+{!athleteId ? (
+  <Button title="Přihlásit přes Stravu" onPress={handleLoginPress} />
+) : (
+  <Button title="Odhlásit" onPress={handleLogout} />
+)}
 
-      />
+  
     {activities.slice(0, 5).map((firstActivity) => (
       <Text key={firstActivity.id} style={{ color: "black" }}>
         {firstActivity.name}
       </Text>
     ))}
+
   </View>
   
 );
