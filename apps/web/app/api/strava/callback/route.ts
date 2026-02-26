@@ -57,6 +57,8 @@ const savedAccount = await prisma.stravaAccount.upsert({
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
     expiresAt: data.expires_at,
+    profileMedium: data.athlete.profile_medium ?? null
+
   },
   create: {
     stravaAthleteId: data.athlete.id,
@@ -65,6 +67,8 @@ const savedAccount = await prisma.stravaAccount.upsert({
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
     expiresAt: data.expires_at,
+    profileMedium: data.athlete.profile_medium ?? null
+
   },
 });
 
@@ -95,6 +99,7 @@ if (Array.isArray(activities)) {
         elapsedTime: activity.elapsed_time ?? null,
         startDate: activity.start_date ? new Date(activity.start_date) : null,
         timezone: activity.timezone ?? null,
+
       },
       create: {
         stravaActivityId: BigInt(activity.id),

@@ -21,6 +21,7 @@ model StravaAccount {
   expiresAt       Int
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  profileMedium String?
 }
 
 

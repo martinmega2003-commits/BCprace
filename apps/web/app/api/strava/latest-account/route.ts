@@ -8,6 +8,7 @@ export async function GET() {
       firstname: true,
       lastname: true,
       updatedAt: true,
+      profileMedium: true,
     },
   });
 
@@ -23,5 +24,6 @@ export async function GET() {
     firstname: account.firstname,
     lastname: account.lastname,
     updatedAt: account.updatedAt,
+    profileMedium: account.profileMedium,
   });
 }
