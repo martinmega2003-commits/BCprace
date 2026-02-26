@@ -69,9 +69,57 @@ const savedAccount = await prisma.stravaAccount.upsert({
 });
 
 
+const activitiesRes = await fetch(
+    "https://www.strava.com/api/v3/athlete/activities?per_page=200",
+    {
+      headers:{
+              Authorization: `Bearer ${data.access_token}`,
+      },
+    }
+);
+const activities = await activitiesRes.json();
+
+if (Array.isArray(activities)) {
+  for (const activity of activities) {
+    await prisma.stravaActivity.upsert({
+      where: {
+        stravaActivityId: BigInt(activity.id),
+      },
+      update: {
+        stravaAthleteId: data.athlete.id,
+        name: activity.name ?? null,
+        type: activity.type ?? null,
+        sportType: activity.sport_type ?? null,
+        distance: activity.distance ?? null,
+        movingTime: activity.moving_time ?? null,
+        elapsedTime: activity.elapsed_time ?? null,
+        startDate: activity.start_date ? new Date(activity.start_date) : null,
+        timezone: activity.timezone ?? null,
+      },
+      create: {
+        stravaActivityId: BigInt(activity.id),
+        stravaAthleteId: data.athlete.id,
+        name: activity.name ?? null,
+        type: activity.type ?? null,
+        sportType: activity.sport_type ?? null,
+        distance: activity.distance ?? null,
+        movingTime: activity.moving_time ?? null,
+        elapsedTime: activity.elapsed_time ?? null,
+        startDate: activity.start_date ? new Date(activity.start_date) : null,
+        timezone: activity.timezone ?? null,
+      },
+    });
+  }
+}
+
+
+
 const response = Response.json({
   message: "ALL GOOD GET BACK TO APP",
   athleteId: savedAccount.stravaAthleteId,
+  activitiesStatus: activitiesRes.status,
+activitiesCount: Array.isArray(activities) ? activities.length : null,
+
 });
 
 response.headers.append(

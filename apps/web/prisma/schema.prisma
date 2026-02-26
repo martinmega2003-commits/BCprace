@@ -7,7 +7,9 @@ generator client {
 
 datasource db {
   provider = "sqlite"
+    url = env("DATABASE_URL")
 }
+
 
 model StravaAccount {
   id              Int      @id @default(autoincrement())
@@ -20,3 +22,37 @@ model StravaAccount {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
+
+
+
+model StravaActivity {
+  id                 Int      @id @default(autoincrement())
+  stravaActivityId   BigInt   @unique
+  stravaAthleteId    Int
+
+  name               String?
+  type               String?
+  sportType          String?
+
+  distance           Float?
+  movingTime         Int?
+  elapsedTime        Int?
+  startDate          DateTime?
+  timezone           String?
+
+  averageSpeed       Float?
+  maxSpeed           Float?
+  averagePace        Float?
+  averageHeartrate   Float?
+  maxHeartrate       Float?
+  averageCadence     Float?
+  sufferScore        Int?
+
+  totalElevationGain Float?
+  elevHigh           Float?
+  elevLow            Float?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
