@@ -20,6 +20,17 @@ export default function BasicButtonExample() {
    profile_medium: string | null;
    } | null>(null);
 
+   const [activities, setActivities] = useState<{
+   id: number;
+   name: string;
+   distance: number;
+   moving_time: number;
+   elapsed_time: number;
+   type: string;
+   start_date: string;
+   }[]>([]);
+
+
 
    const router = useRouter()
    const params = useLocalSearchParams();
@@ -50,6 +61,9 @@ export default function BasicButtonExample() {
          return;
       }
 
+   if(!sessionId){
+      return
+   }else{
       const data = await fetch(`http://192.168.50.214:3000/api/weeklyvolume?session_id=${sessionId}`);
       const WeeklyVolumeData = await data.json();
       const weeklyvolume = WeeklyVolumeData.weekly_volume;
@@ -59,6 +73,7 @@ export default function BasicButtonExample() {
          datasets: [{ data: weeklyvolume.map((item: { volume: any; }) => item.volume) }],
       });
    }
+}
 
    const chartConfig = {
       backgroundGradientFrom: '#ffffff',
@@ -96,6 +111,30 @@ export default function BasicButtonExample() {
       }
 
 
+   async function OneRunInfo(activityId: number) {
+      router.push({
+         pathname: '/(tabs)/RunDetail',
+         params: { session_id: sessionId, activity_id: activityId },
+      })
+      }
+
+      async function LoadActivites() {
+         if(!sessionId){
+            return
+         }
+         const RawActivity = await fetch(`http://192.168.50.214:3000/api/activities?session_id=${sessionId}`)
+         if(!RawActivity.ok){
+            return
+         }
+
+         const Actvity = await RawActivity.json()
+         if(!Actvity.ok){return}
+
+         setActivities(Actvity.Activies)
+
+      }
+
+
    useEffect(() => {
       if (session != null && !Array.isArray(session)) {
          setSessionId(session);
@@ -105,7 +144,8 @@ export default function BasicButtonExample() {
    useEffect(() => {
       if (sessionId != null) {
          WeeklyVolume();
-         LoadProfile()
+         LoadProfile();
+         LoadActivites();
       }
    }, [sessionId]);
 
@@ -174,6 +214,7 @@ export default function BasicButtonExample() {
                   <Text>Můj učet</Text>
                </Pressable>
 
+
                <View style={{ marginTop: 200 }}>
                <Button onPress={Logout} title="Logout" />
                </View>
@@ -191,6 +232,12 @@ export default function BasicButtonExample() {
             yAxisSuffix=""
             chartConfig={chartConfig}
          />
+         {activities.map((activity) => (
+         <Pressable onPress={() =>OneRunInfo(activity.id)} key={activity.id}>
+            <Text>{activity.name}</Text>
+         </Pressable>
+         ))}
+
       </View>
    );
 }
