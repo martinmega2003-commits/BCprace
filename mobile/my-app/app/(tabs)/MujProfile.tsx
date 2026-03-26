@@ -40,8 +40,8 @@ const [weightInput, setWeightInput] = useState('');
         const profileJson = await profiledata.json()
         if (!profileJson.ok) {
             return
-            
         }
+        
             setProfile({
             username: profileJson.username,
             profile_medium: profileJson.profile_medium,
@@ -74,8 +74,8 @@ const [weightInput, setWeightInput] = useState('');
 
         useEffect(() => {
             if (sessionId != null) {
-            LoadProfile()
-        }
+              return
+              }
         }, [sessionId]);
 
         useEffect(() => {
