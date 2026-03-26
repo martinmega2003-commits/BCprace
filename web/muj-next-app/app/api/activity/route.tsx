@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     
     
     const selectUserStatement = db.prepare("SELECT user_id FROM sessions WHERE id = ?");
-    const SelectActivityStatement = db.prepare("SELECT id, name, distance, moving_time, elapsed_time, type, start_date FROM activities WHERE user_id = ? AND id = ? ")
+    const SelectActivityStatement = db.prepare("SELECT id, name, distance, moving_time, elapsed_time, type, start_date, average_cadence, average_speed, max_speed, average_heartrate, max_heartrate FROM activities WHERE user_id = ? AND id = ? ")
 
 
     const userRow = selectUserStatement.get(sessionID) as { user_id: number } | undefined;

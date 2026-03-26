@@ -233,11 +233,55 @@ export default function BasicButtonExample() {
             yAxisSuffix=""
             chartConfig={chartConfig}
          />
-         <ScrollView>
-         {activities.map((activity) => (
-         <RunItem onPress={() =>OneRunInfo(activity.id)} name={activity.name} key={activity.id}></RunItem>
-         ))}
+         <View
+            style={{
+               width: '92%',
+               marginTop: 18,
+               maxHeight: 360,
+               backgroundColor: '#ffffff',
+               borderRadius: 24,
+               padding: 18,
+               borderWidth: 1,
+               borderColor: '#e5e7eb',
+            }}
+         >
+            <Text
+               style={{
+                  color: '#fc4c02',
+                  fontSize: 12,
+                  fontWeight: '700',
+                  letterSpacing: 1,
+                  marginBottom: 8,
+               }}
+            >
+               BĚHY
+            </Text>
+            <Text
+               style={{
+                  color: '#0f172a',
+                  fontSize: 20,
+                  fontWeight: '700',
+                  marginBottom: 8,
+               }}
+            >
+               Tvoje aktivity
+            </Text>
+            <Text
+               style={{
+                  color: '#475569',
+                  fontSize: 14,
+                  lineHeight: 20,
+                  marginBottom: 12,
+               }}
+            >
+               Vyber beh a otevri detail aktivity.
+            </Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+               {activities.map((activity) => (
+                  <RunItem onPress={() => OneRunInfo(activity.id)} name={activity.name} distance={activity.distance} date={activity.start_date} key={activity.id}></RunItem>
+               ))}
             </ScrollView>
+         </View>
       </View>
    );
 }

@@ -52,10 +52,16 @@ db.exec(`
     elapsed_time INTEGER,
     type TEXT,
     start_date TEXT,
+    average_cadence REAL,
+    average_speed REAL,
+    max_speed REAL,
+    average_heartrate REAL,
+    max_heartrate REAL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
     )
     `);
+
 
 
 try {

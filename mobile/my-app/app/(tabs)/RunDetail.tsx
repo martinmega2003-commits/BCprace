@@ -14,6 +14,11 @@ export default function RunDetail(){
         elapsed_time: number;
         type: string;
         start_date: string;
+        average_cadence: number | null;
+        average_speed: number | null;
+        max_speed: number | null;
+        average_heartrate: number | null;
+        max_heartrate: number | null;
     } | null>(null);
 
         const params = useLocalSearchParams();
@@ -42,7 +47,13 @@ async function loadActivity() {
         elapsed_time: activityData.elapsed_time,
         type: activityData.type,
         start_date: activityData.start_date,
+        average_cadence: activityData.average_cadence,
+        average_speed: activityData.average_speed,
+        max_speed: activityData.max_speed,
+        average_heartrate: activityData.average_speed,
+        max_heartrate: activityData.max_heartrate,
         })
+
 
 
     }
@@ -57,21 +68,20 @@ async function loadActivity() {
 
 
     return(
-        <View>
-            <Button title="<-" onPress={Back} />
-            <Text>
-                {Activity?.name}
-            </Text>
-            <Text>
-                {Activity?.distance}
-            </Text>
-            <Text>
-                {Activity?.mooving_time}
-            </Text>
-            <Text>
-                {Activity?.type}
-            </Text>
-        </View>
+<View style={{ padding: 16, gap: 8 }}>
+  <Button title="<-" onPress={Back} />
+
+  <Text>{Activity?.name ?? 'Beh'}</Text>
+  <Text>Distance: {Activity ? `${(Activity.distance / 1000).toFixed(2)} km` : '-'}</Text>
+  <Text>Moving time: {Activity?.mooving_time ?? '-'}</Text>
+  <Text>Type: {Activity?.type ?? '-'}</Text>
+  <Text>AVG cadence: {Activity?.average_cadence ?? '-'}</Text>
+  <Text>AVG speed: {Activity?.average_speed ?? '-'}</Text>
+  <Text>Max speed: {Activity?.max_speed ?? '-'}</Text>
+  <Text>AVG heartrate: {Activity?.average_heartrate ?? '-'}</Text>
+  <Text>Max heartrate: {Activity?.max_heartrate ?? '-'}</Text>
+</View>
+
     )
 
 

@@ -15,7 +15,6 @@ export default function MujProfile(){
         } | null>(null);
 
 
-const [usernameInput, setUsernameInput] = useState('');
 const [sexInput, setSexInput] = useState('');
 const [heightInput, setHeightInput] = useState('');
 const [birthYearInput, setBirthYearInput] = useState('');
@@ -60,7 +59,12 @@ const [weightInput, setWeightInput] = useState('');
             headers:{
                 'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({username: usernameInput,sex: sexInput, height_cm: heightInput, birth_year: birthYearInput,weight_kg: weightInput})
+            body: JSON.stringify({
+              sex: sexInput,
+              height_cm: heightInput === '' ? null : Number(heightInput),
+              birth_year: birthYearInput === '' ? null : Number(birthYearInput),
+              weight_kg: weightInput === '' ? null : Number(weightInput),
+            })
         })
         if (!Save.ok) {
              return
@@ -74,7 +78,7 @@ const [weightInput, setWeightInput] = useState('');
 
         useEffect(() => {
             if (sessionId != null) {
-              return
+              LoadProfile()
               }
         }, [sessionId]);
 
@@ -82,10 +86,8 @@ const [weightInput, setWeightInput] = useState('');
   if (profile) {
     setHeightInput(profile.height_cm?.toString() ?? '');
     setBirthYearInput(profile.birth_year?.toString() ?? '');
-    setUsernameInput(profile.username ?? '');
     setSexInput(profile.sex ?? '');
     setWeightInput(profile.weight_kg?.toString() ?? '');
-    setUsernameInput(profile.username?.toString() ?? '');
 
     
   }
