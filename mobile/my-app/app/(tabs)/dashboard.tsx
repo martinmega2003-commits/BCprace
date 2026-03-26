@@ -1,11 +1,10 @@
 import React from 'react';
-import { Button, View, Text, Pressable, Image } from 'react-native';
+import { Button, View, Text, Pressable, Image, ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
 import { BarChart } from 'react-native-chart-kit';
 import { useLocalSearchParams } from 'expo-router';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-
+import RunItem from '@/components/RunItem';
 
 export default function BasicButtonExample() {
 
@@ -149,6 +148,9 @@ export default function BasicButtonExample() {
       }
    }, [sessionId]);
 
+
+
+
    return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
          <Pressable
@@ -221,7 +223,6 @@ export default function BasicButtonExample() {
             </View>
          )}
          
-         <Button onPress={WeeklyVolume} title="WeeklyVolume" />
          <Text style={{ color: 'blue' }}>{sessionId}</Text>
          <BarChart
             key={sessionId ?? 'logged-out'}
@@ -232,12 +233,11 @@ export default function BasicButtonExample() {
             yAxisSuffix=""
             chartConfig={chartConfig}
          />
+         <ScrollView>
          {activities.map((activity) => (
-         <Pressable onPress={() =>OneRunInfo(activity.id)} key={activity.id}>
-            <Text>{activity.name}</Text>
-         </Pressable>
+         <RunItem onPress={() =>OneRunInfo(activity.id)} name={activity.name} key={activity.id}></RunItem>
          ))}
-
+            </ScrollView>
       </View>
    );
 }

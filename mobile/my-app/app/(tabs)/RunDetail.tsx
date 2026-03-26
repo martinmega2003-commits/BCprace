@@ -68,6 +68,9 @@ async function loadActivity() {
             <Text>
                 {Activity?.mooving_time}
             </Text>
+            <Text>
+                {Activity?.type}
+            </Text>
         </View>
     )
 
