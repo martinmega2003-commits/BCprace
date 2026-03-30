@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 export async function GET(req: NextRequest){
+    const pythonApiUrl = process.env.PYTHON_API_URL ?? "http://127.0.0.1:8000";
     const url = new URL(req.url);
     const code = url.searchParams.get("code");
     const state = url.searchParams.get("state");
     const error = url.searchParams.get("error");
-
-    let page = 1
-    let allActivities: any[] = []
 
     const savedState = req.cookies.get("strava_oauth_state")?.value
     
@@ -89,7 +87,7 @@ export async function GET(req: NextRequest){
 
     const searchUserStatement = db.prepare<{ id: number; strava_athlete_id: number }>("SELECT id, strava_athlete_id FROM users WHERE strava_athlete_id = ?")
 
-    const insertStatement = db.prepare("INSERT INTO users (strava_athlete_id, username, profile_medium, sex, height_cm, birth_year, weight_kg) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    const insertStatement = db.prepare("INSERT INTO users (strava_athlete_id, username, profile_medium, sex, height_cm, birth_date, weight_kg) VALUES (?, ?, ?, ?, ?, ?, ?)")
     
     const insertSessionStatement = db.prepare("INSERT INTO sessions (id ,user_id, expires_at) values(?, ?, ?)")
 
@@ -130,51 +128,34 @@ export async function GET(req: NextRequest){
     const RedirectURL = new URL('myapp://auth/callback')
     RedirectURL.searchParams.set("session_id", sessionId)
 
-
-    const rawActivities = await fetch(`https://www.strava.com/api/v3/athlete/activities?page=${page}&per_page=100`, {
+    const rawActivities = await fetch("https://www.strava.com/api/v3/athlete/activities?per_page=100", {
         method: "GET",
         headers:{
             Authorization: `Bearer ${accessToken}`
         },
     })
 
-    let MyActivities = await rawActivities.json();
-    allActivities = [...MyActivities]
-    page++;
-
-    while (MyActivities.length > 0) {
-        const nextRawActivities = await fetch(`https://www.strava.com/api/v3/athlete/activities?page=${page}&per_page=100`, {
-            method: "GET",
-            headers: {
-                Authorization: `Bearer ${accessToken}`
-            },
-        })
-
-        MyActivities = await nextRawActivities.json();
-        allActivities = [...allActivities, ...MyActivities]
-        page++;
-    }
-
-
-
     if(!rawActivities.ok){
         return NextResponse.json({ok:false, message:"chyba v RAW ACTIVIES"})
 
     }
 
+    const MyActivities = await rawActivities.json();
 
-    if(MyActivities.length === 0){
+    if (MyActivities.length === 0){
         return NextResponse.json({ok:false, message:"chybi data"})
     }
 
 
-    for (let i = 0; i < allActivities.length; i++){
-        let activity = allActivities[i];
-        console.log(activity.id, activity.name, activity.average_cadence)
+    for (let i = 0; i < MyActivities.length; i++){
+        let activity = MyActivities[i];
             insertActivityUserStatment.run(activity.id, userID, activity.name, activity.distance, activity.moving_time, activity.elapsed_time, activity.type, activity.start_date, activity.average_cadence, activity.average_speed, activity.max_speed, activity.average_heartrate, activity.max_heartrate);
-
-            }
+    }
     
+    await fetch(`${pythonApiUrl}/CalHRmax?user_id=${userID}`)
+    await fetch(`${pythonApiUrl}/HRR?user_id=${userID}`)
+    await fetch(`${pythonApiUrl}/IntesityCalcul?user_id=${userID}`)
+
 
 
     
