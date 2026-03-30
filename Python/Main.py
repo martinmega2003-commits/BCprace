@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import timedelta
-
+import math
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -248,7 +248,7 @@ def read_root(user_id: int):
 
 
 
-@app.get("/MVP")
+@app.get("/Trimp")
 def read_root(user_id: int):
     db_path = Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"
     conn = sqlite3.connect(db_path)
@@ -256,4 +256,55 @@ def read_root(user_id: int):
     
     cursor = conn.cursor()
 
-    cursor.execute("SELECT id FROM activities WHERE ")
+    cursor.execute("SELECT max_heartrate_calculated, rest_heartrate  FROM users WHERE id= ?", (user_id,))
+    userDataRAW = cursor.fetchone()
+
+    if not userDataRAW:
+        return {"message": "chybi userData"}
+
+    cursor.execute("SELECT  moving_time, average_heartrate, id FROM activities WHERE user_id= ?", (user_id,))
+    ActvityDataRAW = cursor.fetchall()
+
+    if not ActvityDataRAW:
+        return {"message": "chybi ActvityDataRAW"}
+
+    userData = {
+        "max_heartrate_calculated": userDataRAW["max_heartrate_calculated"],
+        "rest_heartrate": userDataRAW["rest_heartrate"],
+
+    }
+
+
+    for activity in ActvityDataRAW:
+        moving_time_minutes = round(activity["moving_time"] / 60)  # Přepočet na minuty
+        average_heartrate = activity["average_heartrate"]
+        id = activity["id"],
+        if activity["average_heartrate"] is None:
+            continue
+
+        # Výpočet TRIMP pro každou aktivitu
+        id = activity["id"]
+        T = moving_time_minutes
+        HR_ex = average_heartrate
+        HR_rest = userData["rest_heartrate"]
+        HR_max = userData["max_heartrate_calculated"]
+        
+        # Aplikace vzorce pro TRIMP
+        trimp = round(T * ((HR_ex - HR_rest) / (HR_max - HR_rest)) ** 1.92 * 0.64 * math.e, 3)
+        
+
+
+        cursor.execute("UPDATE activities SET trimp = ? WHERE id = ? AND type = 'Run' ", (trimp, id)) 
+
+
+
+    conn.commit()
+    conn.close()
+
+
+
+    return {
+        "userData": userDataRAW,
+        "ActvityData": ActvityDataRAW,
+
+    }

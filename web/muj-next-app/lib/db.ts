@@ -61,6 +61,7 @@ db.exec(`
     average_heartrate REAL,
     max_heartrate REAL,
     intensity REAL,
+    trimp REAL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
     )
@@ -143,13 +144,19 @@ try {
 
 try {
   db.exec(`
-  ALTER TABLE activities DROP COLUMN max_heartrate_calculated
+  ALTER TABLE activities ADD COLUMN trimp REAL
   `);
 } catch (error) {
   console.log("max_heartrate_calculated existuje");
 }
 
 
-
+try {
+  db.exec(`
+ALTER TABLE users ADD COLUMN awrs REAL
+  `);
+} catch (error) {
+  console.log("max_heartrate_calculated existuje");
+}
 
 
