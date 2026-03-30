@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
-    
+    const pythonApiUrl = process.env.PYTHON_API_URL ?? "http://127.0.0.1:8000";
 
     const url = new URL(req.url);
     const cookieSessionId = req.cookies.get("session_id")?.value;
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
     const usedId = UserRow.user_id
 
-    const PythonCall = await fetch(`http://127.0.0.1:8000/weeklyvolume/?user_id=${usedId}`)
+    const PythonCall = await fetch(`${pythonApiUrl}/weeklyvolume/?user_id=${usedId}`)
     
     const Result =await PythonCall.json()
 

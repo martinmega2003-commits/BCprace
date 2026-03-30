@@ -1,20 +1,25 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, SafeAreaView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context'
+
 
 export default function LoginScreen() {
+   const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.0.123:3000';
    const router = useRouter();
    const [isLoading, setIsLoading] = useState(false);
    const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
    const openUrl = async () => {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setIsLoading(true);
       setStatusMessage('Pripojuji Stravu...');
 
       try {
-         const URL = 'http://192.168.50.214:3000/api/auth';
+         const URL = `${API_BASE_URL}/api/auth`;
          const result = await WebBrowser.openAuthSessionAsync(URL, 'myapp://auth/callback');
 
          if (result.type != 'success') {

@@ -26,8 +26,11 @@ db.exec(`
     username TEXT NOT NULL UNIQUE,
     sex TEXT,
     height_cm REAL,
-    birth_year INTEGER,
+    birth_date TEXT,
     weight_kg REAL,
+    rest_heartrate REAL,
+    max_heartrate_calculated REAL,
+    hrr REAL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)
     `);
 
@@ -57,6 +60,7 @@ db.exec(`
     max_speed REAL,
     average_heartrate REAL,
     max_heartrate REAL,
+    intensity REAL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
     )
@@ -90,10 +94,10 @@ try {
 
 try {
   db.exec(`
-    ALTER TABLE users ADD COLUMN birth_year INTEGER
+    ALTER TABLE users ADD COLUMN birth_date TEXT
   `);
 } catch (error) {
-  console.log("birth_year already exists");
+  console.log("birth_date already exists");
 }
 
 try {
@@ -103,3 +107,49 @@ try {
 } catch (error) {
   console.log("weight_kg already exists");
 }
+
+try {
+  db.exec(`
+    ALTER TABLE activities ADD COLUMN max_heartrate_calculated REAL
+  `);
+} catch (error) {
+  console.log("max_heartrate_calculated already exists");
+}
+
+try {
+  db.exec(`
+  ALTER TABLE users ADD COLUMN rest_heartrate REAL
+  `);
+} catch (error) {
+  console.log("rest_heartrate already exists");
+}
+
+
+try {
+  db.exec(`
+  ALTER TABLE users ADD COLUMN max_heartrate_calculated REAL
+  `);
+} catch (error) {
+  console.log("max_heartrate_calculated existuje");
+}
+
+try {
+  db.exec(`
+  ALTER TABLE users ADD COLUMN hrr REAL
+  `);
+} catch (error) {
+  console.log("max_heartrate_calculated existuje");
+}
+
+try {
+  db.exec(`
+  ALTER TABLE activities DROP COLUMN max_heartrate_calculated
+  `);
+} catch (error) {
+  console.log("max_heartrate_calculated existuje");
+}
+
+
+
+
+

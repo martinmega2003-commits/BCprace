@@ -6,6 +6,7 @@ import { router } from "expo-router";
 
 
 export default function RunDetail(){
+    const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.0.123:3000';
     
     const [Activity, setActivity] = useState<{
         name : string;
@@ -32,7 +33,7 @@ async function loadActivity() {
     if (!sessionId || !activityId) {
     return
     }else{
-        const rawActivity = await fetch(`http://192.168.50.214:3000/api/activity?session_id=${sessionId}&activity_id=${activityId}`)
+        const rawActivity = await fetch(`${API_BASE_URL}/api/activity?session_id=${sessionId}&activity_id=${activityId}`)
             if(!rawActivity.ok){return}
         const ActivityJson = await rawActivity.json()
             if (!ActivityJson.ok) {return}

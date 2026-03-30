@@ -5,38 +5,42 @@ import { BarChart } from 'react-native-chart-kit';
 import { useLocalSearchParams } from 'expo-router';
 import { useRouter } from 'expo-router';
 import RunItem from '@/components/RunItem';
+import * as Haptics from 'expo-haptics';
+import { Alert } from 'react-native';
 
 export default function BasicButtonExample() {
+   const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.0.123:3000';
 
-   const [isMenuOpen, setisMenuOpen] = useState(false)
+   const [isMenuOpen, setisMenuOpen] = useState(false);
    const [sessionId, setSessionId] = useState<string | null>(null);
    const [chartData, setChartData] = useState({
       labels: [],
       datasets: [{ data: [] }],
    });
    const [profile, setProfile] = useState<{
-   username: string;
-   profile_medium: string | null;
+      username: string;
+      profile_medium: string | null;
+      height_cm: number | null;
+      birth_date: string | null;
+      rest_heartrate: number | null;
    } | null>(null);
 
    const [activities, setActivities] = useState<{
-   id: number;
-   name: string;
-   distance: number;
-   moving_time: number;
-   elapsed_time: number;
-   type: string;
-   start_date: string;
+      id: number;
+      name: string;
+      distance: number;
+      moving_time: number;
+      elapsed_time: number;
+      type: string;
+      start_date: string;
    }[]>([]);
 
-
-
-   const router = useRouter()
+   const router = useRouter();
    const params = useLocalSearchParams();
    const session = params.session_id;
 
    const Logout = async () => {
-      const URL = 'http://192.168.50.214:3000/api/logout';
+      const URL = `${API_BASE_URL}/api/logout`;
       const Session = sessionId;
 
       setSessionId(null);
@@ -45,10 +49,8 @@ export default function BasicButtonExample() {
          datasets: [{ data: [] }],
       });
 
-
-
       await fetch(`${URL}?session_id=${Session}`);
-      router.replace('/')
+      router.replace('/');
    };
 
    async function WeeklyVolume() {
@@ -60,19 +62,19 @@ export default function BasicButtonExample() {
          return;
       }
 
-   if(!sessionId){
-      return
-   }else{
-      const data = await fetch(`http://192.168.50.214:3000/api/weeklyvolume?session_id=${sessionId}`);
-      const WeeklyVolumeData = await data.json();
-      const weeklyvolume = WeeklyVolumeData.weekly_volume;
+      if (!sessionId) {
+         return;
+      } else {
+         const data = await fetch(`${API_BASE_URL}/api/weeklyvolume?session_id=${sessionId}`);
+         const WeeklyVolumeData = await data.json();
+         const weeklyvolume = WeeklyVolumeData.weekly_volume;
 
-      setChartData({
-         labels: weeklyvolume.map((item: { week: any; }) => `W${item.week}`),
-         datasets: [{ data: weeklyvolume.map((item: { volume: any; }) => item.volume) }],
-      });
+         setChartData({
+            labels: weeklyvolume.map((item: { week: any }) => `W${item.week}`),
+            datasets: [{ data: weeklyvolume.map((item: { volume: any }) => item.volume) }],
+         });
+      }
    }
-}
 
    const chartConfig = {
       backgroundGradientFrom: '#ffffff',
@@ -83,56 +85,63 @@ export default function BasicButtonExample() {
       barPercentage: 0.7,
    };
 
-
-   async function  LoadProfile() {
-      if(!sessionId){
-         return
-      }else{
-         const profiledata = await fetch(`http://192.168.50.214:3000/api/me?session_id=${sessionId}`)
+   async function LoadProfile() {
+      if (!sessionId) {
+         return;
+      } else {
+         const profiledata = await fetch(`${API_BASE_URL}/api/me?session_id=${sessionId}`);
          if (!profiledata.ok) {
-                return
-            }
-         const profileJson = await profiledata.json()
-         if (!profileJson.ok) {
-            return
-            
+            return;
          }
-         setProfile({username: profileJson.username,profile_medium: profileJson.profile_medium})
+         const profileJson = await profiledata.json();
+         if (!profileJson.ok) {
+            return;
+         }
+         setProfile({
+  username: profileJson.username,
+  profile_medium: profileJson.profile_medium,
+  height_cm: profileJson.height_cm,
+  birth_date: profileJson.birth_date,
+  rest_heartrate: profileJson.rest_heartrate,
+});
       }
-      
    }
+
+   const isProfileIncomplete =
+      !profile?.birth_date ||
+      profile?.height_cm == null ||
+      profile?.rest_heartrate == null;
 
    async function MyProfile() {
       router.push({
          pathname: '/(tabs)/MujProfile',
          params: { session_id: sessionId },
-      })
-      }
-
+      });
+   }
 
    async function OneRunInfo(activityId: number) {
       router.push({
          pathname: '/(tabs)/RunDetail',
          params: { session_id: sessionId, activity_id: activityId },
-      })
+      });
+   }
+
+   async function LoadActivites() {
+      if (!sessionId) {
+         return;
+      }
+      const RawActivity = await fetch(`${API_BASE_URL}/api/activities?session_id=${sessionId}`);
+      if (!RawActivity.ok) {
+         return;
       }
 
-      async function LoadActivites() {
-         if(!sessionId){
-            return
-         }
-         const RawActivity = await fetch(`http://192.168.50.214:3000/api/activities?session_id=${sessionId}`)
-         if(!RawActivity.ok){
-            return
-         }
-
-         const Actvity = await RawActivity.json()
-         if(!Actvity.ok){return}
-
-         setActivities(Actvity.Activies)
-
+      const Actvity = await RawActivity.json();
+      if (!Actvity.ok) {
+         return;
       }
 
+      setActivities(Actvity.Activies);
+   }
 
    useEffect(() => {
       if (session != null && !Array.isArray(session)) {
@@ -148,13 +157,35 @@ export default function BasicButtonExample() {
       }
    }, [sessionId]);
 
+   useEffect(() => {
+      if (!profile) {
+         return;
+      }
 
+      if (!isProfileIncomplete) {
+         return;
+      }
 
+      Alert.alert(
+  'Chybi udaje',
+  'Dopln datum narozeni, vysku a klidovy tep.',
+  [
+    {
+      text: 'Přidat',
+      onPress: MyProfile,
+    },
+  ]
+);
+
+   }, [profile, isProfileIncomplete]);
 
    return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
          <Pressable
-            onPress={() => setisMenuOpen(prev => !prev)}
+            onPress={async () => {
+               await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+               setisMenuOpen(prev => !prev);
+            }}
             style={{
                position: 'absolute',
                top: 20,
@@ -181,48 +212,47 @@ export default function BasicButtonExample() {
                   backgroundColor: '#f3f4f6',
                   padding: 16,
                   zIndex: 100,
-                  paddingTop:100,
+                  paddingTop: 100,
                }}
             >
                {profile?.profile_medium ? (
-  <Image
-    source={{ uri: profile.profile_medium }}
-    style={{
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      marginBottom: 12,
-    }}
-  />
-) : (
-  <View
-    style={{
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      backgroundColor: '#d1d5db',
-      marginBottom: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}
-  >
-    <Text style={{ color: '#374151', fontWeight: '600' }}>
-      {profile?.username?.[0]?.toUpperCase() ?? '?'}
-    </Text>
-  </View>
-)}
+                  <Image
+                     source={{ uri: profile.profile_medium }}
+                     style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 32,
+                        marginBottom: 12,
+                     }}
+                  />
+               ) : (
+                  <View
+                     style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 32,
+                        backgroundColor: '#d1d5db',
+                        marginBottom: 12,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                     }}
+                  >
+                     <Text style={{ color: '#374151', fontWeight: '600' }}>
+                        {profile?.username?.[0]?.toUpperCase() ?? '?'}
+                     </Text>
+                  </View>
+               )}
                <Text>{profile?.username}</Text>
                <Pressable onPress={MyProfile}>
-                  <Text>Můj učet</Text>
+                  <Text>Muj učet</Text>
                </Pressable>
 
-
                <View style={{ marginTop: 200 }}>
-               <Button onPress={Logout} title="Logout" />
+                  <Button onPress={Logout} title="Logout" />
                </View>
             </View>
          )}
-         
+
          <Text style={{ color: 'blue' }}>{sessionId}</Text>
          <BarChart
             key={sessionId ?? 'logged-out'}
@@ -254,7 +284,7 @@ export default function BasicButtonExample() {
                   marginBottom: 8,
                }}
             >
-               BĚHY
+               BÄšHY
             </Text>
             <Text
                style={{
@@ -278,7 +308,13 @@ export default function BasicButtonExample() {
             </Text>
             <ScrollView showsVerticalScrollIndicator={false}>
                {activities.map((activity) => (
-                  <RunItem onPress={() => OneRunInfo(activity.id)} name={activity.name} distance={activity.distance} date={activity.start_date} key={activity.id}></RunItem>
+                  <RunItem
+                     onPress={() => OneRunInfo(activity.id)}
+                     name={activity.name}
+                     distance={activity.distance}
+                     date={activity.start_date}
+                     key={activity.id}
+                  ></RunItem>
                ))}
             </ScrollView>
          </View>
