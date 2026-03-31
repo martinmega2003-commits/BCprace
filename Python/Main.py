@@ -35,6 +35,7 @@ def read_root(user_id: int):
     weekly_rows = []
 
     for activity in activities:
+        
         distance = activity["distance"]
         weekly_volume += distance
         all_km += distance
@@ -307,4 +308,92 @@ def read_root(user_id: int):
         "userData": userDataRAW,
         "ActvityData": ActvityDataRAW,
 
+    }
+
+
+
+
+@app.get("/awrs")
+def read_root(user_id: int):
+    db_path = Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT trimp, start_date FROM activities WHERE user_id = ? AND trimp IS NOT NULL", (user_id,))
+
+    activityRowsRAW = cursor.fetchall()
+    if not activityRowsRAW:
+            return {"message": "chybi activityRowsRAW"}
+
+    today = datetime.today()
+
+
+    acuteTrimp = []
+    chronicTrimp = []
+
+    for row in activityRowsRAW:
+        activityDate = datetime.strptime(row["start_date"], "%Y-%m-%dT%H:%M:%SZ")
+
+        daysAgo = (today - activityDate).days
+
+        if daysAgo <= 7:
+            acuteTrimp.append(row["trimp"])
+        if daysAgo <=28:
+            chronicTrimp.append(row["trimp"])
+
+    acuteLoad = sum(acuteTrimp)
+
+    if not chronicTrimp:
+        return {"message": "chybi chronicTrimp"}
+
+    chronicLoad = sum(chronicTrimp) / len(chronicTrimp)
+    awrs = round(acuteLoad / chronicLoad, 3)
+
+
+    cursor.execute(
+    "UPDATE users SET awrs = ? WHERE id = ?",
+    (awrs, user_id))
+    
+    conn.commit()
+    conn.close()
+
+
+
+
+    return {
+        "awrs": awrs,
+        "updated_rows": cursor.rowcount,
+    }
+
+
+
+
+@app.get("/avg")
+def read_root(user_id: int):
+    db_path = Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, distance, moving_time FROM activities WHERE user_id = ? AND type = 'Run'", (user_id,))
+    ActivityRaw = cursor.fetchall()
+
+    if not ActivityRaw:
+        return {"message": "chybi activityRowsRAW"}
+
+
+
+    for actvity in ActivityRaw:
+        tempo = round((actvity["moving_time"] / 60) / (actvity["distance"] / 1000), 3)
+        cursor.execute("UPDATE activities SET Avg_speed=? WHERE id=?",(tempo, actvity["id"]))
+
+    conn.commit()
+    conn.close()
+
+
+    return {
+        "avarage_tempo": tempo,
     }

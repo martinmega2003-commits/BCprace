@@ -17,6 +17,9 @@ export default function BasicButtonExample() {
       labels: [],
       datasets: [{ data: [] }],
    });
+   const [chartRange, setChartRange] = useState<'12' | '24' | 'all'>('12');
+
+
    const [profile, setProfile] = useState<{
       username: string;
       profile_medium: string | null;
@@ -68,10 +71,16 @@ export default function BasicButtonExample() {
          const data = await fetch(`${API_BASE_URL}/api/weeklyvolume?session_id=${sessionId}`);
          const WeeklyVolumeData = await data.json();
          const weeklyvolume = WeeklyVolumeData.weekly_volume;
+         const visibleVolume =
+               chartRange === '12'
+                  ? weeklyvolume.slice(-12)
+                  : chartRange === '24'
+                     ? weeklyvolume.slice(-24)
+                     : weeklyvolume;
 
          setChartData({
-            labels: weeklyvolume.map((item: { week: any }) => `W${item.week}`),
-            datasets: [{ data: weeklyvolume.map((item: { volume: any }) => item.volume) }],
+            labels: visibleVolume.map((item: { week: any }) => `W${item.week}`),
+            datasets: [{ data: visibleVolume.map((item: { volume: any }) => item.volume) }],
          });
       }
    }
@@ -150,12 +159,12 @@ export default function BasicButtonExample() {
    }, [session]);
 
    useEffect(() => {
-      if (sessionId != null) {
-         WeeklyVolume();
-         LoadProfile();
-         LoadActivites();
-      }
-   }, [sessionId]);
+   if (sessionId != null) {
+      WeeklyVolume();
+      LoadProfile();
+      LoadActivites();
+   }
+   }, [sessionId, chartRange]);
 
    useEffect(() => {
       if (!profile) {
@@ -263,6 +272,19 @@ export default function BasicButtonExample() {
             yAxisSuffix=""
             chartConfig={chartConfig}
          />
+         <View style={{ flexDirection: 'row', gap: 50, marginBottom: 12 }}>
+            <Pressable onPress={() => setChartRange('12')}>
+               <Text>3M</Text>
+            </Pressable>
+
+            <Pressable onPress={() => setChartRange('24')}>
+               <Text>6M</Text>
+            </Pressable>
+
+            <Pressable onPress={() => setChartRange('all')}>
+               <Text>All</Text>
+            </Pressable>
+         </View>
          <View
             style={{
                width: '92%',

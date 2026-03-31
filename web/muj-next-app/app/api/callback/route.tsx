@@ -155,6 +155,8 @@ export async function GET(req: NextRequest){
     await fetch(`${pythonApiUrl}/CalHRmax?user_id=${userID}`)
     await fetch(`${pythonApiUrl}/HRR?user_id=${userID}`)
     await fetch(`${pythonApiUrl}/IntesityCalcul?user_id=${userID}`)
+    await fetch(`${pythonApiUrl}/Trimp?user_id=${userID}`)
+    await fetch(`${pythonApiUrl}/awrs?user_id=${userID}`)
 
 
 

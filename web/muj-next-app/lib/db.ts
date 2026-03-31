@@ -31,6 +31,7 @@ db.exec(`
     rest_heartrate REAL,
     max_heartrate_calculated REAL,
     hrr REAL,
+    awrs REAL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)
     `);
 
@@ -62,6 +63,7 @@ db.exec(`
     max_heartrate REAL,
     intensity REAL,
     trimp REAL,
+    Avg_speed REAL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
     )
@@ -69,94 +71,12 @@ db.exec(`
 
 
 
-try {
-  db.exec(`
-    ALTER TABLE users ADD COLUMN profile_medium TEXT
-  `);
-} catch (error) {
-  console.log("profile_medium already exists");
-}
 
 try {
   db.exec(`
-    ALTER TABLE users ADD COLUMN sex TEXT
-  `);
-} catch (error) {
-  console.log("sex already exists");
-}
-
-try {
-  db.exec(`
-    ALTER TABLE users ADD COLUMN height_cm REAL
-  `);
-} catch (error) {
-  console.log("height_cm already exists");
-}
-
-try {
-  db.exec(`
-    ALTER TABLE users ADD COLUMN birth_date TEXT
-  `);
-} catch (error) {
-  console.log("birth_date already exists");
-}
-
-try {
-  db.exec(`
-    ALTER TABLE users ADD COLUMN weight_kg REAL
-  `);
-} catch (error) {
-  console.log("weight_kg already exists");
-}
-
-try {
-  db.exec(`
-    ALTER TABLE activities ADD COLUMN max_heartrate_calculated REAL
-  `);
-} catch (error) {
-  console.log("max_heartrate_calculated already exists");
-}
-
-try {
-  db.exec(`
-  ALTER TABLE users ADD COLUMN rest_heartrate REAL
-  `);
-} catch (error) {
-  console.log("rest_heartrate already exists");
-}
-
-
-try {
-  db.exec(`
-  ALTER TABLE users ADD COLUMN max_heartrate_calculated REAL
+ALTER TABLE activities ADD COLUMN Avg_speed REAL
   `);
 } catch (error) {
   console.log("max_heartrate_calculated existuje");
 }
-
-try {
-  db.exec(`
-  ALTER TABLE users ADD COLUMN hrr REAL
-  `);
-} catch (error) {
-  console.log("max_heartrate_calculated existuje");
-}
-
-try {
-  db.exec(`
-  ALTER TABLE activities ADD COLUMN trimp REAL
-  `);
-} catch (error) {
-  console.log("max_heartrate_calculated existuje");
-}
-
-
-try {
-  db.exec(`
-ALTER TABLE users ADD COLUMN awrs REAL
-  `);
-} catch (error) {
-  console.log("max_heartrate_calculated existuje");
-}
-
 
