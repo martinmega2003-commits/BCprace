@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
     
     
     const selectUserStatement = db.prepare("SELECT user_id FROM sessions WHERE id = ?");
-    const SelectActivityStatement = db.prepare("SELECT id, name, distance, moving_time, elapsed_time, type, start_date, average_cadence, average_speed, max_speed, average_heartrate, max_heartrate FROM activities WHERE user_id = ? AND id = ? ")
-
+    const SelectActivityStatement = db.prepare("SELECT id, user_id, name, distance, moving_time, elapsed_time, type, start_date, average_cadence, average_speed, max_speed, average_heartrate, max_heartrate, intensity, trimp, Avg_speed, created_at FROM activities WHERE user_id = ? AND id = ? ")
+    const SelectRecentRunsStatement = db.prepare("SELECT * FROM activities WHERE user_id = ? AND type = 'Run' AND id != ? AND distance BETWEEN ? AND ? ORDER BY start_date DESC LIMIT 5")
 
     const userRow = selectUserStatement.get(sessionID) as { user_id: number } | undefined;
 
@@ -30,11 +30,27 @@ export async function GET(req: NextRequest) {
     }
     const user = userRow.user_id
 
-    const Activity = SelectActivityStatement.get(user, activityId)
+    const Activity = SelectActivityStatement.get(user, activityId) as {distance: number, Avg_speed: number} | undefined
     
     if (!Activity) {
         return NextResponse.json({ ok: false, message: "Chybi activity" });
         }
 
-    return NextResponse.json({ ok: true, Activity});
+    const minDistance = Activity.distance * 0.8 
+    const maxDistance = Activity.distance * 1.2
+
+
+    const RecentRuns = SelectRecentRunsStatement.all(user, activityId, minDistance, maxDistance)
+    
+    const RecentPaces = RecentRuns.map((run:any)=> run.Avg_speed).filter((pace: number | null) => pace != null)
+
+    if (RecentPaces.length === 0) {
+        return NextResponse.json({ ok: true, Activity, RecentRuns, paceBaseline: null });
+    }
+
+    const paceBaseline = RecentPaces.reduce((sum : number, pace: number ) => sum + pace, 0) / RecentPaces.length
+    const paceDelta = Activity.Avg_speed - paceBaseline
+
+    return NextResponse.json({ ok: true, Activity, RecentRuns, paceBaseline, paceDelta });
+
 }

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button, View, Text, Pressable, Image, ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
 import { BarChart } from 'react-native-chart-kit';
@@ -7,6 +6,7 @@ import { useRouter } from 'expo-router';
 import RunItem from '@/components/RunItem';
 import * as Haptics from 'expo-haptics';
 import { Alert } from 'react-native';
+import WeeklyVolumeStrip from '@/components/WeeklyVolumeStrip';
 
 export default function BasicButtonExample() {
    const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.0.123:3000';
@@ -19,14 +19,15 @@ export default function BasicButtonExample() {
    });
    const [chartRange, setChartRange] = useState<'12' | '24' | 'all'>('12');
 
-
    const [profile, setProfile] = useState<{
       username: string;
       profile_medium: string | null;
       height_cm: number | null;
       birth_date: string | null;
       rest_heartrate: number | null;
+      awrs: number,
    } | null>(null);
+
 
    const [activities, setActivities] = useState<{
       id: number;
@@ -38,9 +39,29 @@ export default function BasicButtonExample() {
       start_date: string;
    }[]>([]);
 
+   const [WeekData, setWeekData] = useState<{
+      day: string;
+      volume: number;
+   }[]>([]);
+
+   const [thisWeekVolume, setThisWeekVolume] = useState(0)
+
+   const [weekChartData, setWeekChartData] = useState({
+      labels: [],
+      datasets: [{ data: [] }],
+      });
+
+   const [dayClicked, setDayClicker] = useState<{
+      day: string,
+      volume: number,
+   }| null>(null)
+
+
+
    const router = useRouter();
    const params = useLocalSearchParams();
    const session = params.session_id;
+
 
    const Logout = async () => {
       const URL = `${API_BASE_URL}/api/logout`;
@@ -56,6 +77,14 @@ export default function BasicButtonExample() {
       router.replace('/');
    };
 
+   async function Sync() {
+      if(!sessionId){
+         return
+      }
+      const dataraw = await fetch(`${API_BASE_URL}/api/sync?session_id=${sessionId}`);
+      const dataClean = await dataraw.json();
+   }
+
    async function WeeklyVolume() {
       if (!sessionId) {
          setChartData({
@@ -70,6 +99,8 @@ export default function BasicButtonExample() {
       } else {
          const data = await fetch(`${API_BASE_URL}/api/weeklyvolume?session_id=${sessionId}`);
          const WeeklyVolumeData = await data.json();
+         const WeekDays = WeeklyVolumeData.this_week_days;
+         const ThisWeekVolume = WeeklyVolumeData.thisweekvolume;
          const weeklyvolume = WeeklyVolumeData.weekly_volume;
          const visibleVolume =
                chartRange === '12'
@@ -82,6 +113,18 @@ export default function BasicButtonExample() {
             labels: visibleVolume.map((item: { week: any }) => `W${item.week}`),
             datasets: [{ data: visibleVolume.map((item: { volume: any }) => item.volume) }],
          });
+
+         setWeekData(WeekDays)
+         setThisWeekVolume(ThisWeekVolume)
+         setWeekChartData({
+         labels: WeekDays.map((item: { day: string }) => item.day),
+         datasets: [
+            {
+               data: WeekDays.map((item: { volume: number }) => item.volume),
+            },
+         ],
+         })
+
       }
    }
 
@@ -107,12 +150,13 @@ export default function BasicButtonExample() {
             return;
          }
          setProfile({
-  username: profileJson.username,
-  profile_medium: profileJson.profile_medium,
-  height_cm: profileJson.height_cm,
-  birth_date: profileJson.birth_date,
-  rest_heartrate: profileJson.rest_heartrate,
-});
+            username: profileJson.username,
+            profile_medium: profileJson.profile_medium,
+            height_cm: profileJson.height_cm,
+            birth_date: profileJson.birth_date,
+            rest_heartrate: profileJson.rest_heartrate,
+            awrs: profileJson.awrs,
+         });
       }
    }
 
@@ -161,10 +205,18 @@ export default function BasicButtonExample() {
    useEffect(() => {
    if (sessionId != null) {
       WeeklyVolume();
+      Sync();
       LoadProfile();
       LoadActivites();
    }
-   }, [sessionId, chartRange]);
+   }, [sessionId]);
+
+
+   useEffect(()=>{
+      if (sessionId != null) {
+      WeeklyVolume();
+      }
+   },[chartRange])
 
    useEffect(() => {
       if (!profile) {
@@ -187,6 +239,8 @@ export default function BasicButtonExample() {
 );
 
    }, [profile, isProfileIncomplete]);
+
+
 
    return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -263,6 +317,10 @@ export default function BasicButtonExample() {
          )}
 
          <Text style={{ color: 'blue' }}>{sessionId}</Text>
+         <Text style={{ color: 'red' }}>
+         AWRS: {profile?.awrs ?? 'null'}
+         </Text>
+
          <BarChart
             key={sessionId ?? 'logged-out'}
             data={chartData}
@@ -285,6 +343,21 @@ export default function BasicButtonExample() {
                <Text>All</Text>
             </Pressable>
          </View>
+         <WeeklyVolumeStrip 
+                  thisWeekVolume={thisWeekVolume}
+                  WeekData={WeekData}
+                  onSelectDay={(day) => {
+                     if (dayClicked?.day === day.day) {
+                        setDayClicker(null);
+                        return;
+                     }
+
+                     setDayClicker(day);
+                     }}
+
+                  selectedDay={dayClicked}>
+            </WeeklyVolumeStrip>
+
          <View
             style={{
                width: '92%',
@@ -306,7 +379,7 @@ export default function BasicButtonExample() {
                   marginBottom: 8,
                }}
             >
-               BÄšHY
+               Běhy
             </Text>
             <Text
                style={{
