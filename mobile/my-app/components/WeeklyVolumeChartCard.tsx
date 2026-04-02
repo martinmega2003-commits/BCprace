@@ -23,20 +23,16 @@ type WeeklyVolumeChartCardProps = {
 
 
 export default function WeeklyVolumeChartCard({chartData, chartRange, sessionId, chartConfig, onChangeRange}: WeeklyVolumeChartCardProps){
-    const screenWidth = Dimensions.get('window').width;
-    const cardWidth = Math.max(screenWidth * 0.92, 280);
-    const chartWidth = Math.max(cardWidth - 48, 232);
+    const chartWidth = Math.max(Dimensions.get('window').width - 48, 260);
 
     return(
         <View
             style={{
                 width: '92%',
-                marginTop: 18,
+                marginTop: 16,
                 backgroundColor: '#ffffff',
-                borderRadius: 28,
-                paddingHorizontal: 18,
-                paddingTop: 18,
-                paddingBottom: 16,
+                borderRadius: 24,
+                padding: 18,
                 borderWidth: 1,
                 borderColor: '#e5e7eb',
             }}
@@ -92,7 +88,7 @@ export default function WeeklyVolumeChartCard({chartData, chartRange, sessionId,
                     <Pressable
                         onPress={() => onChangeRange('12')}
                         style={{
-                            backgroundColor: chartRange === '12' ? '#111827' : '#eef2f7',
+                            backgroundColor: chartRange === '12' ? '#111827' : '#e5e7eb',
                             paddingHorizontal: 12,
                             paddingVertical: 8,
                             borderRadius: 999,
@@ -104,7 +100,7 @@ export default function WeeklyVolumeChartCard({chartData, chartRange, sessionId,
                     <Pressable
                         onPress={() => onChangeRange('24')}
                         style={{
-                            backgroundColor: chartRange === '24' ? '#111827' : '#eef2f7',
+                            backgroundColor: chartRange === '24' ? '#111827' : '#e5e7eb',
                             paddingHorizontal: 12,
                             paddingVertical: 8,
                             borderRadius: 999,
@@ -116,7 +112,7 @@ export default function WeeklyVolumeChartCard({chartData, chartRange, sessionId,
                     <Pressable
                         onPress={() => onChangeRange('all')}
                         style={{
-                            backgroundColor: chartRange === 'all' ? '#111827' : '#eef2f7',
+                            backgroundColor: chartRange === 'all' ? '#111827' : '#e5e7eb',
                             paddingHorizontal: 12,
                             paddingVertical: 8,
                             borderRadius: 999,
@@ -140,7 +136,7 @@ export default function WeeklyVolumeChartCard({chartData, chartRange, sessionId,
                 <BarChart
                     key={sessionId ?? 'logged-out'}
                     data={chartData}
-                    height={214}
+                    height={220}
                     width={chartWidth}
                     yAxisLabel=""
                     yAxisSuffix=""

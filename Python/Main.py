@@ -91,7 +91,7 @@ def read_root(user_id: int):
         weekly_rows.append({
             "year": year,
             "week": week,
-            "volume": volume,
+            "volume": round(volume / 1000, 3),
             "week_start": week_start.date().isoformat(),
         })
 
