@@ -87,10 +87,12 @@ def read_root(user_id: int):
 
     for week_key, volume in weekly_totals.items():
         year, week = week_key
+        week_start = datetime.fromisocalendar(year, week, 1)
         weekly_rows.append({
             "year": year,
             "week": week,
             "volume": volume,
+            "week_start": week_start.date().isoformat(),
         })
 
     weekly_rows.sort(key=lambda row: (row["year"], row["week"]))
