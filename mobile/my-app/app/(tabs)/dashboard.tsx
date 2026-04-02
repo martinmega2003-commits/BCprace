@@ -1,12 +1,14 @@
 import { Button, View, Text, Pressable, Image, ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
-import { BarChart } from 'react-native-chart-kit';
 import { useLocalSearchParams } from 'expo-router';
 import { useRouter } from 'expo-router';
 import RunItem from '@/components/RunItem';
 import * as Haptics from 'expo-haptics';
 import { Alert } from 'react-native';
 import WeeklyVolumeStrip from '@/components/WeeklyVolumeStrip';
+import WeeklyVolumeChartCard from '@/components/WeeklyVolumeChartCard';
+
+
 
 export default function BasicButtonExample() {
    const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.0.123:3000';
@@ -110,7 +112,10 @@ export default function BasicButtonExample() {
                      : weeklyvolume;
 
          setChartData({
-            labels: visibleVolume.map((item: { week: any }) => `W${item.week}`),
+            labels: visibleVolume.map((item: { week_start: string }) => {
+            const date = new Date(item.week_start);
+            return `${date.getDate()}.${date.getMonth() + 1}`;
+            }),
             datasets: [{ data: visibleVolume.map((item: { volume: any }) => item.volume) }],
          });
 
@@ -243,7 +248,7 @@ export default function BasicButtonExample() {
 
 
    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, alignItems: 'center', paddingTop: 88, paddingBottom: 24 }}>
          <Pressable
             onPress={async () => {
                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -316,33 +321,16 @@ export default function BasicButtonExample() {
             </View>
          )}
 
-         <Text style={{ color: 'blue' }}>{sessionId}</Text>
-         <Text style={{ color: 'red' }}>
-         AWRS: {profile?.awrs ?? 'null'}
-         </Text>
-
-         <BarChart
-            key={sessionId ?? 'logged-out'}
-            data={chartData}
-            height={220}
-            width={1000}
-            yAxisLabel=""
-            yAxisSuffix=""
+            <WeeklyVolumeChartCard
+            chartData={chartData}
+            chartRange={chartRange}
+            sessionId={sessionId}
             chartConfig={chartConfig}
-         />
-         <View style={{ flexDirection: 'row', gap: 50, marginBottom: 12 }}>
-            <Pressable onPress={() => setChartRange('12')}>
-               <Text>3M</Text>
-            </Pressable>
+            onChangeRange={setChartRange}
+            />
 
-            <Pressable onPress={() => setChartRange('24')}>
-               <Text>6M</Text>
-            </Pressable>
 
-            <Pressable onPress={() => setChartRange('all')}>
-               <Text>All</Text>
-            </Pressable>
-         </View>
+
          <WeeklyVolumeStrip 
                   thisWeekVolume={thisWeekVolume}
                   WeekData={WeekData}
