@@ -112,9 +112,14 @@ export default function BasicButtonExample() {
                      : weeklyvolume;
 
          setChartData({
-            labels: visibleVolume.map((item: { week_start: string }) => {
-            const date = new Date(item.week_start);
-            return `${date.getDate()}.${date.getMonth() + 1}`;
+            labels: visibleVolume.map((item: { week_start: string }, index:number) => {
+            const interval = chartRange === '12' ? 2 : chartRange === '24' ? 4 : 6;
+            const shouldShowLabel = index % interval === 0 || index === visibleVolume.length - 1;
+            if (!shouldShowLabel) {
+               return '';
+               }
+            const [, month, day] = item.week_start.split('-');
+            return `${Number(day)}.${Number(month)}`;
             }),
             datasets: [{ data: visibleVolume.map((item: { volume: any }) => item.volume) }],
          });
@@ -248,7 +253,7 @@ export default function BasicButtonExample() {
 
 
    return (
-      <View style={{ flex: 1, alignItems: 'center', paddingTop: 88, paddingBottom: 24 }}>
+      <View style={{ flex: 1, alignItems: 'center' }}>
          <Pressable
             onPress={async () => {
                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -321,6 +326,11 @@ export default function BasicButtonExample() {
             </View>
          )}
 
+         <Text style={{ color: 'blue' }}>{sessionId}</Text>
+         <Text style={{ color: 'red' }}>
+         AWRS: {profile?.awrs ?? 'null'}
+         </Text>
+
             <WeeklyVolumeChartCard
             chartData={chartData}
             chartRange={chartRange}
@@ -350,7 +360,6 @@ export default function BasicButtonExample() {
             style={{
                width: '92%',
                marginTop: 18,
-               maxHeight: 360,
                backgroundColor: '#ffffff',
                borderRadius: 24,
                padding: 18,
