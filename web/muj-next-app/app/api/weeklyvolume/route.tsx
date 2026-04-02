@@ -28,8 +28,10 @@ export async function GET(req: NextRequest) {
     const usedId = UserRow.user_id
 
     const PythonCall = await fetch(`${pythonApiUrl}/weeklyvolume/?user_id=${usedId}`)
-    
-    const Result =await PythonCall.json()
+    if(!PythonCall.ok){
+        return NextResponse.json({ok: false, message: "missing PythonCall"}, {status: 400})
 
+    }
+    const Result =await PythonCall.json()
     return NextResponse.json(Result);
 }

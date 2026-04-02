@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
 
     const selectUserStatement = db.prepare("SELECT user_id FROM sessions WHERE id = ?");
-    const UserSelectStatement = db.prepare("SELECT username, profile_medium, sex, height_cm, birth_date, weight_kg, rest_heartrate FROM users WHERE id=?")
+    const UserSelectStatement = db.prepare("SELECT username, profile_medium, sex, height_cm, birth_date, weight_kg, rest_heartrate, awrs FROM users WHERE id=?")
             
     const userRow = selectUserStatement.get(sessionID) as { user_id: number } | undefined;
 
@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
         birth_date: string | null;
         weight_kg: number | null;
         rest_heartrate: number | null
+        awrs: number | null
         }
     | undefined;
 
@@ -54,7 +55,7 @@ return NextResponse.json({
     birth_date: profileRow.birth_date,
     weight_kg: profileRow.weight_kg,
     rest_heartrate: profileRow.rest_heartrate,
-
+    awrs: profileRow.awrs
 });
 }
 

@@ -33,13 +33,26 @@ def read_root(user_id: int):
     weekly_totals = {}
     activity_dates = []
     weekly_rows = []
+    thisweekvolume = 0
+    today = datetime.today()
+    start_of_week = today - timedelta(days=today.weekday())
+    this_week_days = [
+        {"day": "Po", "volume": 0},
+        {"day": "Ut", "volume": 0},
+        {"day": "St", "volume": 0},
+        {"day": "Ct", "volume": 0},
+        {"day": "Pa", "volume": 0},
+        {"day": "So", "volume": 0},
+        {"day": "Ne", "volume": 0},
+    ]
+        
 
     for activity in activities:
         
         distance = activity["distance"]
         weekly_volume += distance
         all_km += distance
-        activity_date = datetime.fromisoformat(activity["start_date"].replace("Z", "+00:00"))
+        activity_date = datetime.fromisoformat(activity["start_date"].replace("Z", "+00:00")).replace(tzinfo=None)
         activity_dates.append(activity_date)
         iso_calendar = activity_date.isocalendar()
         year = iso_calendar.year
@@ -51,6 +64,13 @@ def read_root(user_id: int):
         
         weekly_totals[week_key] += distance
 
+        if activity_date >= start_of_week:
+            thisweekvolume += distance
+            numberofday = activity_date.weekday()
+            this_week_days[numberofday]["volume"] += distance
+
+
+            
     first_date = min(activity_dates)
     last_date = max(activity_dates)
 
@@ -74,8 +94,12 @@ def read_root(user_id: int):
         })
 
     weekly_rows.sort(key=lambda row: (row["year"], row["week"]))
+    thisweekvolume = round(thisweekvolume / 1000, 3)
 
-    return {"weekly_volume": weekly_rows, "all_km": all_km}
+    for oneday in this_week_days:
+        oneday["volume"] = round(oneday["volume"]/1000,3)
+
+    return {"weekly_volume": weekly_rows, "all_km": all_km, "thisweekvolume": thisweekvolume, "this_week_days": this_week_days}
 
 
 
