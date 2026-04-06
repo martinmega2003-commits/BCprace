@@ -20,7 +20,7 @@ type HistoryPoint = {
 
 function formatShortDate(dateIso: string) {
    const [, month, day] = dateIso.split('-');
-   return `${Number(day)}.${Number(month)}.`;
+   return `${Number(day)}/${Number(month)}`;
 }
 
 function buildHistoryPoints(rows: WeeklyVolumeRow[], range: ChartRange): HistoryPoint[] {
