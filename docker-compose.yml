@@ -1,0 +1,59 @@
+services:
+  python:
+    build:
+      context: ./Python
+      dockerfile: Dockerfile
+    container_name: rebulid01-python
+    networks:
+      - rebulid01-network
+    ports:
+      - "8000:8000"
+    environment:
+      SQLITE_DB_PATH: /data/strava.sqlite
+    volumes:
+      - ./data:/data
+
+  web:
+    build:
+      context: ./web/muj-next-app
+      dockerfile: Dockerfile
+    container_name: rebulid01-web
+    networks:
+      - rebulid01-network
+    depends_on:
+      - python
+    env_file:
+      - ./web/muj-next-app/.env.local
+    environment:
+      PYTHON_API_URL: http://python:8000
+      SQLITE_DB_PATH: /data/strava.sqlite
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data
+
+  mobile:
+    build:
+      context: ./mobile/my-app
+      dockerfile: Dockerfile
+    container_name: rebulid01-mobile
+    networks:
+      - rebulid01-network
+    depends_on:
+      - web
+    env_file:
+      - ./mobile/my-app/.env.local
+    environment:
+      EXPO_NO_TELEMETRY: "1"
+      REACT_NATIVE_PACKAGER_HOSTNAME: ${REACT_NATIVE_PACKAGER_HOSTNAME:-192.168.50.214}
+    ports:
+      - "8081:8081"
+      - "19000:19000"
+      - "19001:19001"
+      - "19002:19002"
+    stdin_open: true
+    tty: true
+
+networks:
+  rebulid01-network:
+    driver: bridge

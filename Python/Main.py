@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+import os
 from pathlib import Path
 import sqlite3
 from datetime import datetime
@@ -9,9 +10,12 @@ import math
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+def get_db_path() -> Path:
+    return Path(os.environ.get("SQLITE_DB_PATH", Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"))
+
 @app.get("/weeklyvolume")
 def read_root(user_id: int):
-    db_path = Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"
+    db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     
@@ -107,7 +111,7 @@ def read_root(user_id: int):
 
 @app.get("/CalHRmax")
 def read_root(user_id: int):
-    db_path = Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"
+    db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     
@@ -164,7 +168,7 @@ def read_root(user_id: int):
 
 @app.get("/HRR")
 def read_root(user_id: int):
-    db_path = Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"
+    db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     
@@ -206,7 +210,7 @@ def read_root(user_id: int):
 
 @app.get("/IntesityCalcul")
 def read_root(user_id: int):
-    db_path = Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"
+    db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     
@@ -277,7 +281,7 @@ def read_root(user_id: int):
 
 @app.get("/Trimp")
 def read_root(user_id: int):
-    db_path = Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"
+    db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     
@@ -341,7 +345,7 @@ def read_root(user_id: int):
 
 @app.get("/awrs")
 def read_root(user_id: int):
-    db_path = Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"
+    db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     
@@ -398,7 +402,7 @@ def read_root(user_id: int):
 
 @app.get("/avg")
 def read_root(user_id: int):
-    db_path = Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"
+    db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     

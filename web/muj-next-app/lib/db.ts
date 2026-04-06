@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import path from "path";
 
-const dbPath = path.join(process.cwd(), "strava.sqlite");
+const dbPath = process.env.SQLITE_DB_PATH ?? path.join(process.cwd(), "strava.sqlite");
 
 export const db = new Database(dbPath);
 
@@ -79,4 +79,3 @@ ALTER TABLE activities ADD COLUMN Avg_speed REAL
 } catch (error) {
   console.log("max_heartrate_calculated existuje");
 }
-
