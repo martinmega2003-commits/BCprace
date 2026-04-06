@@ -8,18 +8,79 @@ import { Alert } from 'react-native';
 import WeeklyVolumeStrip from '@/components/WeeklyVolumeStrip';
 import WeeklyVolumeChartCard from '@/components/WeeklyVolumeChartCard';
 
+type ChartRange = '12' | '24' | 'all';
+type WeeklyVolumeRow = {
+   week_start: string;
+   volume: number;
+};
+type HistoryPoint = {
+   label: string;
+   volume: number;
+};
 
+function formatShortDate(dateIso: string) {
+   const [, month, day] = dateIso.split('-');
+   return `${Number(day)}.${Number(month)}.`;
+}
+
+function buildHistoryPoints(rows: WeeklyVolumeRow[], range: ChartRange): HistoryPoint[] {
+   if (range === '12') {
+      return rows.slice(-12).map((item) => ({
+         label: formatShortDate(item.week_start),
+         volume: item.volume,
+      }));
+   }
+
+   if (range === '24') {
+      const last24 = rows.slice(-24);
+      const points: HistoryPoint[] = [];
+
+      for (let index = 0; index < last24.length; index += 2) {
+         const chunk = last24.slice(index, index + 2);
+         const start = chunk[0];
+         const end = chunk[chunk.length - 1];
+
+         points.push({
+            label: formatShortDate(end.week_start),
+            volume: chunk.reduce((sum, item) => sum + item.volume, 0),
+         });
+      }
+
+      return points;
+   }
+
+   const monthlyMap = new Map<string, HistoryPoint>();
+
+   rows.forEach((item) => {
+      const [year, month] = item.week_start.split('-');
+      const key = `${year}-${month}`;
+      const monthNumber = Number(month);
+      const existing = monthlyMap.get(key);
+
+      if (existing) {
+         existing.volume += item.volume;
+         return;
+      }
+
+      monthlyMap.set(key, {
+         label: `${monthNumber}/${year.slice(2)}`,
+         volume: item.volume,
+      });
+   });
+
+   return Array.from(monthlyMap.values());
+}
 
 export default function BasicButtonExample() {
    const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.0.123:3000';
 
    const [isMenuOpen, setisMenuOpen] = useState(false);
    const [sessionId, setSessionId] = useState<string | null>(null);
-   const [chartData, setChartData] = useState({
-      labels: [],
-      datasets: [{ data: [] }],
-   });
-   const [chartRange, setChartRange] = useState<'12' | '24' | 'all'>('12');
+   const [chartRange, setChartRange] = useState<ChartRange>('12');
+   const [historyPeriods, setHistoryPeriods] = useState<{
+      label: string;
+      volume: number;
+   }[]>([]);
 
    const [profile, setProfile] = useState<{
       username: string;
@@ -70,10 +131,7 @@ export default function BasicButtonExample() {
       const Session = sessionId;
 
       setSessionId(null);
-      setChartData({
-         labels: [],
-         datasets: [{ data: [] }],
-      });
+      setHistoryPeriods([]);
 
       await fetch(`${URL}?session_id=${Session}`);
       router.replace('/');
@@ -89,10 +147,7 @@ export default function BasicButtonExample() {
 
    async function WeeklyVolume() {
       if (!sessionId) {
-         setChartData({
-            labels: [],
-            datasets: [{ data: [] }],
-         });
+         setHistoryPeriods([]);
          return;
       }
 
@@ -103,26 +158,8 @@ export default function BasicButtonExample() {
          const WeeklyVolumeData = await data.json();
          const WeekDays = WeeklyVolumeData.this_week_days;
          const ThisWeekVolume = WeeklyVolumeData.thisweekvolume;
-         const weeklyvolume = WeeklyVolumeData.weekly_volume;
-         const visibleVolume =
-               chartRange === '12'
-                  ? weeklyvolume.slice(-12)
-                  : chartRange === '24'
-                     ? weeklyvolume.slice(-24)
-                     : weeklyvolume;
-
-         setChartData({
-            labels: visibleVolume.map((item: { week_start: string }, index:number) => {
-            const interval = chartRange === '12' ? 2 : chartRange === '24' ? 4 : 6;
-            const shouldShowLabel = index % interval === 0 || index === visibleVolume.length - 1;
-            if (!shouldShowLabel) {
-               return '';
-               }
-            const [, month, day] = item.week_start.split('-');
-            return `${Number(day)}.${Number(month)}`;
-            }),
-            datasets: [{ data: visibleVolume.map((item: { volume: any }) => item.volume) }],
-         });
+         const weeklyvolume = WeeklyVolumeData.weekly_volume as WeeklyVolumeRow[];
+         setHistoryPeriods(buildHistoryPoints(weeklyvolume, chartRange));
 
          setWeekData(WeekDays)
          setThisWeekVolume(ThisWeekVolume)
@@ -137,15 +174,6 @@ export default function BasicButtonExample() {
 
       }
    }
-
-   const chartConfig = {
-      backgroundGradientFrom: '#ffffff',
-      backgroundGradientTo: '#ffffff',
-      decimalPlaces: 0,
-      color: (opacity = 1) => `rgba(34, 34, 34, ${opacity})`,
-      labelColor: (opacity = 1) => `rgba(34, 34, 34, ${opacity})`,
-      barPercentage: 0.7,
-   };
 
    async function LoadProfile() {
       if (!sessionId) {
@@ -332,10 +360,8 @@ export default function BasicButtonExample() {
          </Text>
 
             <WeeklyVolumeChartCard
-            chartData={chartData}
+            periods={historyPeriods}
             chartRange={chartRange}
-            sessionId={sessionId}
-            chartConfig={chartConfig}
             onChangeRange={setChartRange}
             />
 

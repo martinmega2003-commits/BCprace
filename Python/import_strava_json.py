@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import sys
 from pathlib import Path
 
 
-DB_PATH = Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"
+DB_PATH = Path(os.environ.get("SQLITE_DB_PATH", Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"))
 
 
 def main() -> int:
