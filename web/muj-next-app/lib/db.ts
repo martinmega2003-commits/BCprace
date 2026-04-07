@@ -74,7 +74,7 @@ db.exec(`
 
 try {
   db.exec(`
-ALTER TABLE activities ADD COLUMN Avg_speed REAL
+ALTER TABLE activities DROP COLUMN Avg_speed;
   `);
 } catch (error) {
   console.log("max_heartrate_calculated existuje");

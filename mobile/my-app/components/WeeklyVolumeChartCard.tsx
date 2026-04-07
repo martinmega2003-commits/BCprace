@@ -66,7 +66,7 @@ export default function WeeklyVolumeChartCard({
     <View
       style={{
         width: '92%',
-        marginTop: 30,
+        marginTop: 22,
         backgroundColor: '#ffffff',
         borderRadius: 20,
         padding: 14,

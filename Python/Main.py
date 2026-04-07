@@ -325,7 +325,7 @@ def read_root(user_id: int):
         
 
 
-        cursor.execute("UPDATE activities SET trimp = ? WHERE id = ? AND type = 'Run' ", (trimp, id)) 
+        cursor.execute("UPDATE activities SET trimp = ? WHERE id = ?  ", (trimp, id)) 
 
 
 
@@ -378,7 +378,7 @@ def read_root(user_id: int):
     if not chronicTrimp:
         return {"message": "chybi chronicTrimp"}
 
-    chronicLoad = sum(chronicTrimp) / len(chronicTrimp)
+    chronicLoad = sum(chronicTrimp) / 4
     awrs = round(acuteLoad / chronicLoad, 3)
 
 

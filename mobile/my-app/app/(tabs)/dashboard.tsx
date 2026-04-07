@@ -7,6 +7,9 @@ import * as Haptics from 'expo-haptics';
 import { Alert } from 'react-native';
 import WeeklyVolumeStrip from '@/components/WeeklyVolumeStrip';
 import WeeklyVolumeChartCard from '@/components/WeeklyVolumeChartCard';
+import AwrsWidget from '@/components/AwrsWidget';
+
+
 
 type ChartRange = '12' | '24' | 'all';
 type WeeklyVolumeRow = {
@@ -310,7 +313,7 @@ export default function BasicButtonExample() {
                   left: 0,
                   width: 220,
                   height: '100%',
-                  backgroundColor: '#f3f4f6',
+                  backgroundColor: '#f3f4f6dc',
                   padding: 16,
                   zIndex: 100,
                   paddingTop: 100,
@@ -353,11 +356,15 @@ export default function BasicButtonExample() {
                </View>
             </View>
          )}
-
-         <Text style={{ color: 'blue' }}>{sessionId}</Text>
-         <Text style={{ color: 'red' }}>
-         AWRS: {profile?.awrs ?? 'null'}
-         </Text>
+         <View
+            style={{
+               width: '92%',
+               marginBottom: -10,
+               alignItems: 'flex-end',
+            }}
+         >
+            <AwrsWidget awrs={profile?.awrs ?? null} />
+         </View>
 
             <WeeklyVolumeChartCard
             periods={historyPeriods}
