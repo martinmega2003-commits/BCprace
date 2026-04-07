@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     
     
     const selectUserStatement = db.prepare("SELECT user_id FROM sessions WHERE id = ?");
-    const SelectActivityStatement = db.prepare("SELECT id, user_id, name, distance, moving_time, elapsed_time, type, start_date, average_cadence, average_speed, max_speed, average_heartrate, max_heartrate, intensity, trimp, Avg_speed, created_at FROM activities WHERE user_id = ? AND id = ? ")
+    const SelectActivityStatement = db.prepare("SELECT id, user_id, name, distance, moving_time, elapsed_time, type, start_date, average_cadence, average_speed, max_speed, average_heartrate, max_heartrate, intensity, trimp, created_at FROM activities WHERE user_id = ? AND id = ? ")
     const SelectRecentRunsStatement = db.prepare("SELECT * FROM activities WHERE user_id = ? AND type = 'Run' AND id != ? AND distance BETWEEN ? AND ? ORDER BY start_date DESC LIMIT 5")
 
     const userRow = selectUserStatement.get(sessionID) as { user_id: number } | undefined;
