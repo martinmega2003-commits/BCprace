@@ -18,9 +18,10 @@ export async function GET(req: NextRequest) {
     }
     
     
+    const paceExpression = "CASE WHEN Avg_speed IS NOT NULL THEN Avg_speed WHEN distance IS NOT NULL AND distance > 0 AND moving_time IS NOT NULL THEN moving_time / 60.0 / (distance / 1000.0) ELSE NULL END AS Avg_speed";
     const selectUserStatement = db.prepare("SELECT user_id FROM sessions WHERE id = ?");
-    const SelectActivityStatement = db.prepare("SELECT id, user_id, name, distance, moving_time, elapsed_time, type, start_date, average_cadence, average_speed, max_speed, average_heartrate, max_heartrate, intensity, trimp, created_at FROM activities WHERE user_id = ? AND id = ? ")
-    const SelectRecentRunsStatement = db.prepare("SELECT * FROM activities WHERE user_id = ? AND type = 'Run' AND id != ? AND distance BETWEEN ? AND ? ORDER BY start_date DESC LIMIT 5")
+    const SelectActivityStatement = db.prepare(`SELECT id, user_id, name, distance, moving_time, elapsed_time, type, start_date, average_cadence, average_speed, max_speed, average_heartrate, max_heartrate, intensity, trimp, ${paceExpression}, created_at FROM activities WHERE user_id = ? AND id = ? `)
+    const SelectRecentRunsStatement = db.prepare(`SELECT id, user_id, name, distance, moving_time, elapsed_time, type, start_date, ${paceExpression}, created_at FROM activities WHERE user_id = ? AND type = 'Run' AND id != ? AND distance BETWEEN ? AND ? ORDER BY start_date DESC LIMIT 5`)
 
     const userRow = selectUserStatement.get(sessionID) as { user_id: number } | undefined;
 
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
     }
     const user = userRow.user_id
 
-    const Activity = SelectActivityStatement.get(user, activityId) as {distance: number, Avg_speed: number} | undefined
+    const Activity = SelectActivityStatement.get(user, activityId) as {distance: number, Avg_speed: number | null} | undefined
     
     if (!Activity) {
         return NextResponse.json({ ok: false, message: "Chybi activity" });
@@ -42,10 +43,10 @@ export async function GET(req: NextRequest) {
 
     const RecentRuns = SelectRecentRunsStatement.all(user, activityId, minDistance, maxDistance)
     
-    const RecentPaces = RecentRuns.map((run:any)=> run.Avg_speed).filter((pace: number | null) => pace != null)
+    const RecentPaces = RecentRuns.map((run:any)=> run.Avg_speed).filter((pace: number | null): pace is number => pace != null)
 
-    if (RecentPaces.length === 0) {
-        return NextResponse.json({ ok: true, Activity, RecentRuns, paceBaseline: null });
+    if (Activity.Avg_speed == null || RecentPaces.length === 0) {
+        return NextResponse.json({ ok: true, Activity, RecentRuns, paceBaseline: null, paceDelta: null });
     }
 
     const paceBaseline = RecentPaces.reduce((sum : number, pace: number ) => sum + pace, 0) / RecentPaces.length

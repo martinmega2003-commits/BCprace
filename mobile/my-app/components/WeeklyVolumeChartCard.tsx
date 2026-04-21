@@ -66,7 +66,7 @@ export default function WeeklyVolumeChartCard({
     <View
       style={{
         width: '92%',
-        marginTop: 22,
+        marginTop: 20,
         backgroundColor: '#ffffff',
         borderRadius: 20,
         padding: 14,
@@ -177,6 +177,8 @@ export default function WeeklyVolumeChartCard({
           adjustToWidth
           roundedTop
           roundedBottom
+          isAnimated
+          animationDuration={500}
           rulesColor="#e2e8f0"
           xAxisColor="#cbd5e1"
           yAxisThickness={0}

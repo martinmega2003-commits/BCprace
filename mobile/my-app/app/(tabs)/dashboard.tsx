@@ -1,4 +1,4 @@
-import { Button, View, Text, Pressable, Image, ScrollView } from 'react-native';
+import { View, Text, Pressable, Image, ScrollView, Modal } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { useRouter } from 'expo-router';
@@ -75,7 +75,7 @@ function buildHistoryPoints(rows: WeeklyVolumeRow[], range: ChartRange): History
 }
 
 export default function BasicButtonExample() {
-   const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.0.123:3000';
+   const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.50.214:3000';
 
    const [isMenuOpen, setisMenuOpen] = useState(false);
    const [sessionId, setSessionId] = useState<string | null>(null);
@@ -305,57 +305,168 @@ export default function BasicButtonExample() {
                Menu
             </Text>
          </Pressable>
-         {isMenuOpen && (
-            <View
-               style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: 220,
-                  height: '100%',
-                  backgroundColor: '#f3f4f6dc',
-                  padding: 16,
-                  zIndex: 100,
-                  paddingTop: 100,
-               }}
-            >
-               {profile?.profile_medium ? (
-                  <Image
-                     source={{ uri: profile.profile_medium }}
-                     style={{
-                        width: 64,
-                        height: 64,
-                        borderRadius: 32,
-                        marginBottom: 12,
-                     }}
-                  />
-               ) : (
-                  <View
-                     style={{
-                        width: 64,
-                        height: 64,
-                        borderRadius: 32,
-                        backgroundColor: '#d1d5db',
-                        marginBottom: 12,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                     }}
-                  >
-                     <Text style={{ color: '#374151', fontWeight: '600' }}>
-                        {profile?.username?.[0]?.toUpperCase() ?? '?'}
-                     </Text>
-                  </View>
-               )}
-               <Text>{profile?.username}</Text>
-               <Pressable onPress={MyProfile}>
-                  <Text>Muj učet</Text>
-               </Pressable>
+          <Modal
+             visible={isMenuOpen}
+             transparent
+             animationType="none"
+             onRequestClose={() => setisMenuOpen(false)}
+          >
+             <View
+                style={{
+                   flex: 1,
+                   flexDirection: 'row',
+                }}
+             >
+                <View
+                   style={{
+                      width: 248,
+                      height: '100%',
+                      backgroundColor: '#ffffff',
+                      paddingHorizontal: 18,
+                      paddingTop: 44,
+                      paddingBottom: 12,
+                      borderRightWidth: 1,
+                      borderRightColor: '#e5e7eb',
+                      shadowColor: '#0f172a',
+                      shadowOpacity: 0.12,
+                      shadowRadius: 18,
+                      shadowOffset: { width: 4, height: 0 },
+                      elevation: 8,
+                   }}
+                >
+                   <Text
+                      style={{
+                         color: '#fc4c02',
+                         fontSize: 12,
+                         fontWeight: '900',
+                         letterSpacing: 1.4,
+                         marginBottom: 16,
+                      }}
+                   >
+                      MENU
+                   </Text>
+                   {profile?.profile_medium ? (
+                      <Image
+                         source={{ uri: profile.profile_medium }}
+                         style={{
+                            width: 58,
+                            height: 58,
+                            borderRadius: 29,
+                            marginBottom: 12,
+                            borderWidth: 2,
+                            borderColor: '#fed7aa',
+                         }}
+                      />
+                   ) : (
+                      <View
+                         style={{
+                            width: 58,
+                            height: 58,
+                            borderRadius: 29,
+                            backgroundColor: '#fff7ed',
+                            marginBottom: 12,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderWidth: 2,
+                            borderColor: '#fed7aa',
+                         }}
+                      >
+                         <Text style={{ color: '#fc4c02', fontWeight: '900' }}>
+                            {profile?.username?.[0]?.toUpperCase() ?? '?'}
+                         </Text>
+                      </View>
+                   )}
+                   <Text
+                      style={{
+                         color: '#111827',
+                         fontSize: 18,
+                         fontWeight: '800',
+                         marginBottom: 20,
+                      }}
+                   >
+                      {profile?.username ?? 'Profil'}
+                   </Text>
 
-               <View style={{ marginTop: 200 }}>
-                  <Button onPress={Logout} title="Logout" />
-               </View>
-            </View>
-         )}
+                   <View style={{ gap: 10, flex: 1 }}>
+                      <Pressable
+                         onPress={MyProfile}
+                         style={({ pressed }) => ({
+                            backgroundColor: '#fff7ed',
+                            borderRadius: 16,
+                            paddingHorizontal: 15,
+                            paddingVertical: 13,
+                            borderWidth: 1,
+                            borderColor: '#fed7aa',
+                            opacity: pressed ? 0.75 : 1,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                         })}
+                      >
+                         <Text
+                            style={{
+                               color: '#9a3412',
+                               fontSize: 14,
+                               fontWeight: '800',
+                            }}
+                         >
+                            Muj ucet
+                         </Text>
+                         <Text
+                            style={{
+                               color: '#fc4c02',
+                               fontSize: 16,
+                               fontWeight: '900',
+                            }}
+                         >
+                            +
+                         </Text>
+                      </Pressable>
+
+                      <Pressable
+                         onPress={Logout}
+                         style={({ pressed }) => ({
+                            marginTop: 'auto',
+                            marginBottom: '15%',
+                            backgroundColor: '#ffffff',
+                            borderRadius: 16,
+                            paddingHorizontal: 15,
+                            paddingVertical: 13,
+                            borderWidth: 1,
+                            borderColor: '#e5e7eb',
+                            opacity: pressed ? 0.75 : 1,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                         })}
+                      >
+                         <Text
+                            style={{
+                               color: '#64748b',
+                               fontSize: 14,
+                               fontWeight: '800',
+                            }}
+                         >
+                            Logout
+                         </Text>
+                         <Text
+                            style={{
+                               color: '#ef4444',
+                               fontSize: 14,
+                               fontWeight: '900',
+                            }}
+                         >
+                            X
+                         </Text>
+                      </Pressable>
+                   </View>
+                </View>
+                <Pressable
+                   onPress={() => setisMenuOpen(false)}
+                   style={{ flex: 1 }}
+                />
+             </View>
+          </Modal>
          <View
             style={{
                width: '92%',
@@ -392,7 +503,7 @@ export default function BasicButtonExample() {
          <View
             style={{
                width: '92%',
-               marginTop: 18,
+               marginTop: 10,
                backgroundColor: '#ffffff',
                borderRadius: 24,
                padding: 18,
@@ -416,7 +527,7 @@ export default function BasicButtonExample() {
                   color: '#0f172a',
                   fontSize: 20,
                   fontWeight: '700',
-                  marginBottom: 8,
+                  marginBottom: 2,
                }}
             >
                Tvoje aktivity
@@ -426,7 +537,7 @@ export default function BasicButtonExample() {
                   color: '#475569',
                   fontSize: 14,
                   lineHeight: 20,
-                  marginBottom: 12,
+                  marginBottom: 8,
                }}
             >
                Vyber beh a otevri detail aktivity.
