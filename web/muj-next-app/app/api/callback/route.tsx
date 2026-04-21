@@ -7,13 +7,6 @@ export async function GET(req: NextRequest){
     const state = url.searchParams.get("state");
     const error = url.searchParams.get("error");
 
-    const savedState = req.cookies.get("strava_oauth_state")?.value
-    
-    if(!savedState){
-        return NextResponse.json({ ok: false, message: "Missing cookie" }, { status: 400 });
-    }
-
-
     if(error){
         return NextResponse.json({ok: false, error},{ status:400});
     }
@@ -26,10 +19,19 @@ export async function GET(req: NextRequest){
     if(!state){
         return NextResponse.json({ ok: false, message: "Missing state" }, { status: 400 });
     }
+    const StateSearchStatment = db.prepare("SELECT state FROM oauth_states WHERE state = ?")
 
-    if(savedState !== state){
-        return NextResponse.json({ ok: false, message: "chyba v savedstade a statu" }, { status: 400 });
-    } 
+    const savedState = StateSearchStatment.get(state)
+
+    if (!savedState) {
+        return NextResponse.json({ ok: false, message: "Invalid state" }, { status: 400 });
+    }
+
+
+    const DeleteStateStatement = db.prepare("DELETE FROM oauth_states WHERE state = ?")
+    DeleteStateStatement.run(state)
+
+
 
     const token = await fetch("https://www.strava.com/oauth/token", {
         method: "POST",

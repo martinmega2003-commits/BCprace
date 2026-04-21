@@ -33,7 +33,7 @@ export default function WeeklyVolumeStrip({thisWeekVolume, WeekData, onSelectDay
         <View
             style={{
                 width: '92%',
-                marginTop: 12,
+                marginTop: 10,
                 backgroundColor: '#ffffff',
                 borderRadius: 18,
                 paddingHorizontal: 16,

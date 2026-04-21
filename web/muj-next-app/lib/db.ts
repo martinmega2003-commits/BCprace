@@ -70,12 +70,20 @@ db.exec(`
     `);
 
 
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS oauth_states (
+        state TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
 
 
 try {
   db.exec(`
-ALTER TABLE activities DROP COLUMN Avg_speed;
+ALTER TABLE activities ADD COLUMN Avg_speed REAL
   `);
 } catch (error) {
-  console.log("max_heartrate_calculated existuje");
+  console.log("Avg_speed existuje");
 }
+
