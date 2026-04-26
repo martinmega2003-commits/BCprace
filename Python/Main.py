@@ -6,9 +6,22 @@ from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import timedelta
 import math
+from openai import OpenAI
+
+from dotenv import load_dotenv
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+load_dotenv()
+
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
+
+
+
 
 def get_db_path() -> Path:
     return Path(os.environ.get("SQLITE_DB_PATH", Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"))
@@ -427,3 +440,33 @@ def read_root(user_id: int):
     return {
         "avarage_tempo": tempo,
     }
+
+
+
+@app.get("/ai")
+async def root():
+
+    endpoint = AZURE_OPENAI_ENDPOINT
+    deployment_name = AZURE_OPENAI_DEPLOYMENT
+    api_key = AZURE_OPENAI_API_KEY
+
+    client = OpenAI(
+        base_url=endpoint,
+        api_key=api_key
+    )
+
+    completion = client.chat.completions.create(
+        model=deployment_name,
+        messages=[
+            {
+                "role": "user",
+                "content": "What is the capital of France?",
+            }
+        ],
+    )
+    
+    x = completion.choices[0].message
+
+
+
+    return {"AZURE_OPENAI_ENDPOINT": x,}
