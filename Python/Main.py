@@ -1,3 +1,5 @@
+import json
+
 from fastapi import FastAPI
 import os
 from pathlib import Path
@@ -19,7 +21,7 @@ AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
-
+AZURE_OPENAI_SYSTEM_PROMPT = os.getenv("AZURE_OPENAI_SYSTEM_PROMPT")
 
 
 
@@ -444,11 +446,48 @@ def read_root(user_id: int):
 
 
 @app.get("/ai")
-async def root():
+def read_root(user_id: int):
 
     endpoint = AZURE_OPENAI_ENDPOINT
     deployment_name = AZURE_OPENAI_DEPLOYMENT
     api_key = AZURE_OPENAI_API_KEY
+
+    twenty_eight_days_ago = (datetime.today() - timedelta(days=28)).isoformat()
+    today = datetime.today()
+
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    
+    
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT start_date, trimp FROM activities WHERE user_id = ? AND start_date >= ? ORDER BY start_date DESC", (user_id, twenty_eight_days_ago))
+
+    ActivityRaw = cursor.fetchall()
+
+    if not ActivityRaw:
+        return {"message": "chybi activityRowsRAW"}
+
+    activities = [dict(row) for row in ActivityRaw]
+
+    JsonActivity = json.dumps(activities, ensure_ascii=False)
+
+    cursor.execute("SELECT awrs FROM users WHERE id = ?", (user_id,))
+
+    RawAWRS = cursor.fetchone()
+
+    awrs = RawAWRS["awrs"]
+
+    if not RawAWRS:
+        return {"message": "chybi awrs"}
+
+
+    lastActivityDayRaw= activities[0]["start_date"]
+
+    lastActivityDay = datetime.fromisoformat(lastActivityDayRaw.replace("Z", "+00:00")).replace(tzinfo=None)
+
+    DaysFromLastActivity = (today - lastActivityDay).days
 
     client = OpenAI(
         base_url=endpoint,
@@ -459,14 +498,23 @@ async def root():
         model=deployment_name,
         messages=[
             {
+                "role": "system",
+                "content": AZURE_OPENAI_SYSTEM_PROMPT,
+            },
+            {
                 "role": "user",
-                "content": "What is the capital of France?",
-            }
+                "content": f"Pracuj pouze s těmito vstupy. Nic nepřidávej a nic neodhaduj. Pokud nějaký údaj není přímo ve vstupu, nesmí se objevit ve výstupu. Nepoužívej časové formulace jako 'v posledním týdnu', 'před týdnem' nebo 'nedávno', pokud je nelze přesně odvodit ze vstupu. Vstup 1 - recent_activities JSON: {JsonActivity}. Vstup 2 - AWRS: {awrs}. Vstup 3 - days_since_last_activity: {DaysFromLastActivity}. Na základě pouze těchto vstupů vrať požadovaný JSON.",
+            },
         ],
-    )
+
     
+        response_format={"type": "json_object"},
+
+    )
+
     x = completion.choices[0].message
 
+    parsed_response = json.loads(x.content)
 
-
-    return {"AZURE_OPENAI_ENDPOINT": x,}
+    return {
+        "response": parsed_response}
