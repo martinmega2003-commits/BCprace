@@ -8,7 +8,8 @@ import { Alert } from 'react-native';
 import WeeklyVolumeStrip from '@/components/WeeklyVolumeStrip';
 import WeeklyVolumeChartCard from '@/components/WeeklyVolumeChartCard';
 import AwrsWidget from '@/components/AwrsWidget';
-
+import { useStore } from 'expo-router/build/global-state/router-store';
+import AiInsightCard from '@/components/AiInsightCard';
 
 
 type ChartRange = '12' | '24' | 'all';
@@ -123,6 +124,14 @@ export default function BasicButtonExample() {
    }| null>(null)
 
 
+   const [AiAnswer, setAiAnswer] = useState<{
+      status: string,
+      headline: string,
+      summary: string,
+      risks: string[],
+      actions: string[],
+   }| null>(null)
+
 
    const router = useRouter();
    const params = useLocalSearchParams();
@@ -201,6 +210,30 @@ export default function BasicButtonExample() {
       }
    }
 
+
+   async function Aicall() {
+      if (!sessionId) {
+         return;
+      }
+
+      const RawAi = await fetch(`${API_BASE_URL}/api/ai?session_id=${sessionId}`);
+      if (!RawAi.ok) {
+         return;
+      }
+
+      const Ai = await RawAi.json();
+
+      if (!Ai.response) {
+         return;
+      }
+
+      setAiAnswer(Ai.response)
+
+   }
+
+
+
+
    const isProfileIncomplete =
       !profile?.birth_date ||
       profile?.height_cm == null ||
@@ -249,6 +282,8 @@ export default function BasicButtonExample() {
       Sync();
       LoadProfile();
       LoadActivites();
+      Aicall()
+
    }
    }, [sessionId]);
 
@@ -499,6 +534,7 @@ export default function BasicButtonExample() {
 
                   selectedDay={dayClicked}>
             </WeeklyVolumeStrip>
+            {AiAnswer && <AiInsightCard {...AiAnswer} />}
 
          <View
             style={{
