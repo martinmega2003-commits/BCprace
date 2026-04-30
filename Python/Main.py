@@ -91,7 +91,7 @@ def read_root(user_id: int):
 
             
     first_date = min(activity_dates)
-    last_date = max(activity_dates)
+    last_date = today
 
     current_date = first_date
 
@@ -489,12 +489,30 @@ def read_root(user_id: int):
 
     DaysFromLastActivity = (today - lastActivityDay).days
 
+
+    NotTrainingForLong = DaysFromLastActivity >= 14
+    UnderTrainingRisk = awrs < 0.8
+
+    GapBetweenLastTwoActivities = None
+    ReturningAfterLongBreak = False
+
+    if len(activities) >= 2:
+        last_activity_date = datetime.fromisoformat(activities[0]["start_date"].replace("Z", "+00:00")).replace(tzinfo=None)
+        previous_activity_date = datetime.fromisoformat(activities[1]["start_date"].replace("Z", "+00:00")).replace(tzinfo=None)
+
+        GapBetweenLastTwoActivities = (last_activity_date - previous_activity_date).days
+
+        if DaysFromLastActivity <= 7 and GapBetweenLastTwoActivities >= 14:
+            ReturningAfterLongBreak = True
+
+
     client = OpenAI(
         base_url=endpoint,
         api_key=api_key
     )
 
     completion = client.chat.completions.create(
+        temperature=0,
         model=deployment_name,
         messages=[
             {
@@ -503,7 +521,7 @@ def read_root(user_id: int):
             },
             {
                 "role": "user",
-                "content": f"Pracuj pouze s těmito vstupy. Nic nepřidávej a nic neodhaduj. Pokud nějaký údaj není přímo ve vstupu, nesmí se objevit ve výstupu. Nepoužívej časové formulace jako 'v posledním týdnu', 'před týdnem' nebo 'nedávno', pokud je nelze přesně odvodit ze vstupu. Vstup 1 - recent_activities JSON: {JsonActivity}. Vstup 2 - AWRS: {awrs}. Vstup 3 - days_since_last_activity: {DaysFromLastActivity}. Na základě pouze těchto vstupů vrať požadovaný JSON.",
+                "content": f"Pracuj pouze s těmito vstupy. Nic nepřidávej a nic neodhaduj. Pokud nějaký údaj není přímo ve vstupu, nesmí se objevit ve výstupu. Nepoužívej časové formulace jako 'v posledním týdnu', 'před týdnem' nebo 'nedávno', pokud je nelze přesně odvodit ze vstupu. Vstup 1 - recent_activities JSON: {JsonActivity}. Vstup 2 - AWRS: {awrs}. Vstup 3 - days_since_last_activity: {DaysFromLastActivity}. Vstup 4 - not_training_for_long: {NotTrainingForLong}. Vstup 5 - undertraining_risk: {UnderTrainingRisk}. Vstup 6 - gap_between_last_two_activities: {GapBetweenLastTwoActivities}. Vstup 7 - returning_after_long_break: {ReturningAfterLongBreak}. Na základě pouze těchto vstupů vrať požadovaný JSON.",
             },
         ],
 

@@ -10,6 +10,9 @@ import WeeklyVolumeChartCard from '@/components/WeeklyVolumeChartCard';
 import AwrsWidget from '@/components/AwrsWidget';
 import { useStore } from 'expo-router/build/global-state/router-store';
 import AiInsightCard from '@/components/AiInsightCard';
+import { RefreshControl } from 'react-native';
+
+
 
 
 type ChartRange = '12' | '24' | 'all';
@@ -96,6 +99,8 @@ export default function BasicButtonExample() {
    } | null>(null);
 
 
+
+
    const [activities, setActivities] = useState<{
       id: number;
       name: string;
@@ -133,9 +138,25 @@ export default function BasicButtonExample() {
    }| null>(null)
 
 
+
+   const [aiLoading, setaiLoading] = useState(false);
+
+
+
+
+
+
+
+
+   const [refreshing, setRefreshing] = useState(false)
+
+
+
    const router = useRouter();
    const params = useLocalSearchParams();
    const session = params.session_id;
+
+
 
 
    const Logout = async () => {
@@ -210,14 +231,41 @@ export default function BasicButtonExample() {
       }
    }
 
+   async function ReloadDashboard() {
+      await WeeklyVolume();
+      await LoadProfile();
+      await LoadActivites();
+   }
+
+
+   async function ScrollReload() {
+      setRefreshing(true);
+      await Sync();
+      await ReloadDashboard();
+      setRefreshing(false);
+
+   }
+
+
+
 
    async function Aicall() {
+
+      if(aiLoading == true){
+         return
+      }
+
+      setaiLoading(true)
+
+
       if (!sessionId) {
+               setaiLoading(false)
          return;
       }
 
       const RawAi = await fetch(`${API_BASE_URL}/api/ai?session_id=${sessionId}`);
       if (!RawAi.ok) {
+               setaiLoading(false)
          return;
       }
 
@@ -225,11 +273,14 @@ export default function BasicButtonExample() {
 
       if (!Ai.response) {
          return;
+               setaiLoading(false)
+
       }
 
       setAiAnswer(Ai.response)
-
    }
+
+
 
 
 
@@ -278,11 +329,9 @@ export default function BasicButtonExample() {
 
    useEffect(() => {
    if (sessionId != null) {
-      WeeklyVolume();
       Sync();
-      LoadProfile();
-      LoadActivites();
-      Aicall()
+      ReloadDashboard()
+
 
    }
    }, [sessionId]);
@@ -501,7 +550,22 @@ export default function BasicButtonExample() {
                    style={{ flex: 1 }}
                 />
              </View>
-          </Modal>
+         </Modal>
+         <ScrollView
+            refreshControl={
+               <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={ScrollReload}
+               />
+            }
+            style={{ width: '100%' }}
+            contentContainerStyle={{
+               alignItems: 'center',
+               paddingTop: 30,
+               paddingBottom: 32,
+            }}
+            showsVerticalScrollIndicator={false}
+         >
          <View
             style={{
                width: '92%',
@@ -534,17 +598,44 @@ export default function BasicButtonExample() {
 
                   selectedDay={dayClicked}>
             </WeeklyVolumeStrip>
-            {AiAnswer && <AiInsightCard {...AiAnswer} />}
+            {AiAnswer ? (
+               <AiInsightCard {...AiAnswer} />
+            ) : (
+               <Pressable
+                  onPress={Aicall}
+                  
+                  style={({ pressed }) => ({
+                     width: '92%',
+                     marginTop: 18,
+                     backgroundColor: '#111827',
+                     borderRadius: 20,
+                     paddingVertical: 16,
+                     alignItems: 'center',
+                     opacity: pressed ? 0.8 : 1,
+                  })}
+               >
+                  <Text
+                     style={{
+                        color: '#ffffff',
+                        fontSize: 15,
+                        fontWeight: '700',
+                     }}
+                  >
+                     {aiLoading ? 'Generating...' : 'Generate AI Insight'}
+                  </Text>
+               </Pressable>
+            )}
 
-         <View
-            style={{
-               width: '92%',
-               marginTop: 10,
-               backgroundColor: '#ffffff',
-               borderRadius: 24,
-               padding: 18,
-               borderWidth: 1,
-               borderColor: '#e5e7eb',
+            <View
+               style={{
+                  width: '92%',
+                  marginTop: 10,
+                  height: 360,
+                  backgroundColor: '#ffffff',
+                  borderRadius: 24,
+                  padding: 18,
+                  borderWidth: 1,
+                  borderColor: '#e5e7eb',
             }}
          >
             <Text
@@ -578,7 +669,10 @@ export default function BasicButtonExample() {
             >
                Vyber beh a otevri detail aktivity.
             </Text>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+               nestedScrollEnabled
+               showsVerticalScrollIndicator={false}
+            >
                {activities.map((activity) => (
                   <RunItem
                      onPress={() => OneRunInfo(activity.id)}
@@ -590,6 +684,7 @@ export default function BasicButtonExample() {
                ))}
             </ScrollView>
          </View>
+         </ScrollView>
       </View>
    );
 }
