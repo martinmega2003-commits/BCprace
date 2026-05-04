@@ -21,7 +21,8 @@ AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
-AZURE_OPENAI_SYSTEM_PROMPT = os.getenv("AZURE_OPENAI_SYSTEM_PROMPT")
+AZURE_OPENAI_SYSTEM_PROMPT1 = os.getenv("AZURE_OPENAI_SYSTEM_PROMPT1")
+AZURE_OPENAI_SYSTEM_PROMPT2 = os.getenv("AZURE_OPENAI_SYSTEM_PROMPT2")
 
 
 
@@ -464,6 +465,8 @@ def read_root(user_id: int):
 
     cursor.execute("SELECT start_date, trimp FROM activities WHERE user_id = ? AND start_date >= ? ORDER BY start_date DESC", (user_id, twenty_eight_days_ago))
 
+
+
     ActivityRaw = cursor.fetchall()
 
     if not ActivityRaw:
@@ -473,16 +476,25 @@ def read_root(user_id: int):
 
     JsonActivity = json.dumps(activities, ensure_ascii=False)
 
-    cursor.execute("SELECT awrs FROM users WHERE id = ?", (user_id,))
+    cursor.execute("SELECT awrs, estimated_vo2max FROM users WHERE id = ?", (user_id,))
 
-    RawAWRS = cursor.fetchone()
+    RawUserData = cursor.fetchone()
 
-    awrs = RawAWRS["awrs"]
+    awrs = RawUserData["awrs"]
+    
+    estimated_vo2max = RawUserData["estimated_vo2max"]
 
-    if not RawAWRS:
+    if not RawUserData:
         return {"message": "chybi awrs"}
 
-
+    cursor.execute(
+        "SELECT start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 2",
+        (user_id,)
+    )
+    last_two_activities_raw = cursor.fetchall()
+    
+        
+    
     lastActivityDayRaw= activities[0]["start_date"]
 
     lastActivityDay = datetime.fromisoformat(lastActivityDayRaw.replace("Z", "+00:00")).replace(tzinfo=None)
@@ -496,14 +508,42 @@ def read_root(user_id: int):
     GapBetweenLastTwoActivities = None
     ReturningAfterLongBreak = False
 
-    if len(activities) >= 2:
-        last_activity_date = datetime.fromisoformat(activities[0]["start_date"].replace("Z", "+00:00")).replace(tzinfo=None)
-        previous_activity_date = datetime.fromisoformat(activities[1]["start_date"].replace("Z", "+00:00")).replace(tzinfo=None)
+    if len(last_two_activities_raw) >= 2:
+        last_activity_date = datetime.fromisoformat(last_two_activities_raw[0]["start_date"].replace("Z", "+00:00")).replace(tzinfo=None)
+        previous_activity_date = datetime.fromisoformat(last_two_activities_raw[1]["start_date"].replace("Z", "+00:00")).replace(tzinfo=None)
 
         GapBetweenLastTwoActivities = (last_activity_date - previous_activity_date).days
 
         if DaysFromLastActivity <= 7 and GapBetweenLastTwoActivities >= 14:
             ReturningAfterLongBreak = True
+
+    BackendRisks = []
+
+    if ReturningAfterLongBreak == True:
+        BackendRisks.append("Navrat do treninku po delsi pauze zvysuje riziko prilis rychleho navyseni zateze.")
+        
+    if UnderTrainingRisk:
+        BackendRisks.append("Nizka aktualni zatez muze snizovat pripravenost na vyssi treninkove zatizeni.")
+
+    
+
+    
+    StatusFromMetrics = "ok"
+
+    if UnderTrainingRisk and not ReturningAfterLongBreak:
+        StatusFromMetrics = "low"
+
+    if ReturningAfterLongBreak:
+        StatusFromMetrics = "elevated"
+
+    if awrs > 1.5 and not ReturningAfterLongBreak:
+        StatusFromMetrics = "elevated"
+
+    if awrs > 2.0 and not ReturningAfterLongBreak:
+        StatusFromMetrics = "high"
+
+
+
 
 
     client = OpenAI(
@@ -517,11 +557,11 @@ def read_root(user_id: int):
         messages=[
             {
                 "role": "system",
-                "content": AZURE_OPENAI_SYSTEM_PROMPT,
+                "content": AZURE_OPENAI_SYSTEM_PROMPT1,
             },
             {
                 "role": "user",
-                "content": f"Pracuj pouze s těmito vstupy. Nic nepřidávej a nic neodhaduj. Pokud nějaký údaj není přímo ve vstupu, nesmí se objevit ve výstupu. Nepoužívej časové formulace jako 'v posledním týdnu', 'před týdnem' nebo 'nedávno', pokud je nelze přesně odvodit ze vstupu. Vstup 1 - recent_activities JSON: {JsonActivity}. Vstup 2 - AWRS: {awrs}. Vstup 3 - days_since_last_activity: {DaysFromLastActivity}. Vstup 4 - not_training_for_long: {NotTrainingForLong}. Vstup 5 - undertraining_risk: {UnderTrainingRisk}. Vstup 6 - gap_between_last_two_activities: {GapBetweenLastTwoActivities}. Vstup 7 - returning_after_long_break: {ReturningAfterLongBreak}. Na základě pouze těchto vstupů vrať požadovaný JSON.",
+                "content": f"Pracuj pouze s těmito vstupy. Nic nepřidávej a nic neodhaduj. Pokud nějaký údaj není přímo ve vstupu, nesmí se objevit ve výstupu. Nepoužívej časové formulace jako 'v posledním týdnu', 'před týdnem' nebo 'nedávno', pokud je nelze přesně odvodit ze vstupu. Vysoké AWRS samo o sobě neznamená potvrzené přetížení ani zákaz dalšího běhu. Pokud nejsou přítomné další negativní signály, interpretuj vysoké AWRS spíše jako zvýšenou opatrnost a potřebu rozumné regulace další zátěže, ne jako akutní problém. Pokud backend_risks obsahuje alespoň jednu položku, nesmíš ve summary ani v risks tvrdit, že žádná rizika nejsou přítomná. Backend_risks ber jako závazná fakta. Pokud je estimated_vo2max dostupne, zohledni ho ve summary a actions jako orientacni ukazatel aerobni vykonnosti. Nestaci jen uvest cislo. Strucne vysvetli, co dana hodnota znamena pro bezce v praktickem kontextu vytrvalosti nebo aerobni vykonnosti. Nepopisuj ji jako laboratorni mereni, ale jako odhad. Vstup 1 - recent_activities JSON: {JsonActivity}. Vstup 2 - AWRS: {awrs}. Vstup 3 - days_since_last_activity: {DaysFromLastActivity}. Vstup 4 - not_training_for_long: {NotTrainingForLong}. Vstup 5 - undertraining_risk: {UnderTrainingRisk}. Vstup 6 - gap_between_last_two_activities: {GapBetweenLastTwoActivities}. Vstup 7 - returning_after_long_break: {ReturningAfterLongBreak}. Vstup 8 - status_from_metrics: {StatusFromMetrics}. Vstup 9 - backend_risks: {BackendRisks}. Vstup 10 - estimated_vo2max: {estimated_vo2max}. Na základě pouze těchto vstupů vrať požadovaný JSON.",
             },
         ],
 
@@ -533,6 +573,204 @@ def read_root(user_id: int):
     x = completion.choices[0].message
 
     parsed_response = json.loads(x.content)
+    parsed_response["status"] = StatusFromMetrics
+
 
     return {
-        "response": parsed_response}
+        "response": parsed_response,
+        "debug": {
+            "awrs": awrs,
+            "DaysFromLastActivity": DaysFromLastActivity,
+            "GapBetweenLastTwoActivities": GapBetweenLastTwoActivities,
+            "ReturningAfterLongBreak": ReturningAfterLongBreak,
+            "UnderTrainingRisk": UnderTrainingRisk,
+            "StatusFromMetrics": StatusFromMetrics,
+        }
+    }
+
+
+
+
+
+
+'''
+@app.get("/aiTraining")
+def read_root(user_id: int, activity_id: int):
+    endpoint = AZURE_OPENAI_ENDPOINT
+    deployment_name = AZURE_OPENAI_DEPLOYMENT
+    api_key = AZURE_OPENAI_API_KEY
+
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """SELECT id, name, distance, moving_time, elapsed_time, type, start_date,
+                  average_heartrate, max_heartrate, intensity, trimp, Avg_speed
+           FROM activities
+           WHERE user_id = ? AND id = ?""",
+        (user_id, activity_id)
+    )
+    activity_row = cursor.fetchone()
+
+    if not activity_row:
+        conn.close()
+        return {"message": "chybi activity"}
+
+    activity = dict(activity_row)
+    json_activity = json.dumps(activity, ensure_ascii=False)
+
+    cursor.execute("SELECT awrs FROM users WHERE id = ?", (user_id,))
+    raw_awrs = cursor.fetchone()
+
+    if not raw_awrs:
+        conn.close()
+        return {"message": "chybi awrs"}
+
+    awrs = raw_awrs["awrs"]
+    conn.close()
+
+    client = OpenAI(
+        base_url=endpoint,
+        api_key=api_key
+    )
+
+    completion = client.chat.completions.create(
+        temperature=0,
+        model=deployment_name,
+        messages=[
+            {
+                "role": "system",
+                "content": AZURE_OPENAI_SYSTEM_PROMPT2
+            },
+            {
+                "role": "user",
+                "content": f"Vyhodnoť pouze tento jeden trénink. Aktivita JSON: {json_activity}. Aktuální AWRS uživatele: {awrs}. Nevytvářej kontext, který není ve vstupu. Vrať pouze požadovaný JSON.",
+            },
+        ],
+        response_format={"type": "json_object"},
+    )
+
+    x = completion.choices[0].message
+
+    return {"response": x}
+
+
+'''
+
+@app.get("/VO2MaxCalcul")
+def read_root(user_id: int):
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT max_heartrate_calculated, hrr, rest_heartrate FROM users WHERE id = ?",
+        (user_id,)
+    )
+    userDataRAW = cursor.fetchone()
+
+    if not userDataRAW:
+        conn.close()
+        return {"message": "chybi userData"}
+
+    rest_heartrate = userDataRAW["rest_heartrate"]
+    hrr = userDataRAW["hrr"]
+
+    if rest_heartrate is None or hrr is None or hrr <= 0:
+        conn.close()
+        return {"message": "chybi rest_heartrate nebo hrr"}
+
+    def load_candidates(window_days: int):
+        since_date = (datetime.today() - timedelta(days=window_days)).isoformat()
+
+        cursor.execute(
+            """
+            SELECT moving_time, average_heartrate, distance, average_speed, start_date, id
+            FROM activities
+            WHERE user_id = ? AND type = 'Run' AND start_date >= ?
+            """,
+            (user_id, since_date)
+        )
+        activity_rows = cursor.fetchall()
+
+        clean_activity = []
+
+        for activity in activity_rows:
+            if activity["average_heartrate"] is None:
+                continue
+            if activity["distance"] is None or activity["distance"] < 3000:
+                continue
+            if activity["moving_time"] is None or activity["moving_time"] < 1200:
+                continue
+            if activity["average_speed"] is None or activity["average_speed"] <= 0:
+                continue
+
+            clean_activity.append(dict(activity))
+
+        vo2_candidates = []
+
+        for activity in clean_activity:
+            speed_m_per_min = activity["average_speed"] * 60
+            vo2_beh = round(3.5 + 0.2 * speed_m_per_min, 3)
+            relative_intensity = round((activity["average_heartrate"] - rest_heartrate) / hrr, 3)
+
+            if relative_intensity < 0.75:
+                continue
+
+            estimated_vo2max = round(3.5 + (vo2_beh - 3.5) / relative_intensity, 3)
+
+            vo2_candidates.append({
+                "id": activity["id"],
+                "distance": activity["distance"],
+                "moving_time": activity["moving_time"],
+                "average_heartrate": activity["average_heartrate"],
+                "average_speed": activity["average_speed"],
+                "VO2_beh": vo2_beh,
+                "relative_intensity": relative_intensity,
+                "EstimatedVO2max": estimated_vo2max,
+            })
+
+        return vo2_candidates
+
+    VO2MaxCandidates = load_candidates(30)
+    source_window_days = 30
+    fresh = True
+
+    if not VO2MaxCandidates:
+        VO2MaxCandidates = load_candidates(90)
+        source_window_days = 90
+        fresh = False
+
+    if not VO2MaxCandidates:
+        conn.close()
+        return {
+            "estimated_vo2max": None,
+            "source_window_days": None,
+            "fresh": False,
+            "message": "Za poslednich 90 dni neni zadna vhodna bezecka aktivita pro odhad VO2max."
+        }
+
+    EstimatedVO2MaxFinal = max(candidate["EstimatedVO2max"] for candidate in VO2MaxCandidates)
+
+    estimated_vo2max_updated_at = datetime.today().isoformat()
+
+    cursor.execute(
+        "UPDATE users SET estimated_vo2max = ?, estimated_vo2max_updated_at = ? WHERE id = ?",
+        (EstimatedVO2MaxFinal, estimated_vo2max_updated_at, user_id)
+    )
+
+    conn.commit()
+
+    conn.close()
+
+
+    return {
+        "estimated_vo2max": EstimatedVO2MaxFinal,
+        "source_window_days": source_window_days,
+        "fresh": fresh,
+        "candidates_count": len(VO2MaxCandidates),
+        "VO2MaxCandidates": VO2MaxCandidates,
+    }
