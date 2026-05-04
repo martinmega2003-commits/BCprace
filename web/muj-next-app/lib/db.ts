@@ -32,6 +32,8 @@ db.exec(`
     max_heartrate_calculated REAL,
     hrr REAL,
     awrs REAL,
+    estimated_vo2max REAL,
+    estimated_vo2max_updated_at TEXT
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)
     `);
 
@@ -87,3 +89,19 @@ ALTER TABLE activities ADD COLUMN Avg_speed REAL
   console.log("Avg_speed existuje");
 }
 
+
+try {
+  db.exec(`
+    ALTER TABLE users ADD COLUMN estimated_vo2max REAL
+  `);
+} catch (error) {
+  console.log("estimated_vo2max existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE users ADD COLUMN estimated_vo2max_updated_at TEXT
+  `);
+} catch (error) {
+  console.log("estimated_vo2max_updated_at existuje");
+}

@@ -10,6 +10,7 @@ import WeeklyVolumeChartCard from '@/components/WeeklyVolumeChartCard';
 import AwrsWidget from '@/components/AwrsWidget';
 import { useStore } from 'expo-router/build/global-state/router-store';
 import AiInsightCard from '@/components/AiInsightCard';
+import Vo2MaxWidget from '@/components/Vo2MaxWidget';
 import { RefreshControl } from 'react-native';
 
 
@@ -137,6 +138,12 @@ export default function BasicButtonExample() {
       actions: string[],
    }| null>(null)
 
+   const [vo2maxData, setVo2MaxData] = useState<{
+      estimated_vo2max: number | null;
+      source_window_days: number | null;
+      fresh: boolean;
+   } | null>(null);
+
 
 
    const [aiLoading, setaiLoading] = useState(false);
@@ -155,6 +162,7 @@ export default function BasicButtonExample() {
    const router = useRouter();
    const params = useLocalSearchParams();
    const session = params.session_id;
+
 
 
 
@@ -189,9 +197,19 @@ export default function BasicButtonExample() {
       } else {
          const data = await fetch(`${API_BASE_URL}/api/weeklyvolume?session_id=${sessionId}`);
          const WeeklyVolumeData = await data.json();
-         const WeekDays = WeeklyVolumeData.this_week_days;
-         const ThisWeekVolume = WeeklyVolumeData.thisweekvolume;
+
+      if (!WeeklyVolumeData.weekly_volume) {
+         setHistoryPeriods([]);
+         setWeekData([]);
+         setThisWeekVolume(0);
+         return;
+      }
+
+         const WeekDays = WeeklyVolumeData.this_week_days ?? [];
+         const ThisWeekVolume = WeeklyVolumeData.thisweekvolume ?? 0;
          const weeklyvolume = WeeklyVolumeData.weekly_volume as WeeklyVolumeRow[];
+
+
          setHistoryPeriods(buildHistoryPoints(weeklyvolume, chartRange));
 
          setWeekData(WeekDays)
@@ -231,9 +249,29 @@ export default function BasicButtonExample() {
       }
    }
 
+   async function LoadVo2Max() {
+      if (!sessionId) {
+         return;
+      }
+
+      const rawVo2Max = await fetch(`${API_BASE_URL}/api/vo2max?session_id=${sessionId}`);
+      if (!rawVo2Max.ok) {
+         return;
+      }
+
+      const vo2MaxJson = await rawVo2Max.json();
+
+      setVo2MaxData({
+         estimated_vo2max: vo2MaxJson.estimated_vo2max ?? null,
+         source_window_days: vo2MaxJson.source_window_days ?? null,
+         fresh: vo2MaxJson.fresh ?? false,
+      });
+   }
+
    async function ReloadDashboard() {
       await WeeklyVolume();
       await LoadProfile();
+      await LoadVo2Max();
       await LoadActivites();
    }
 
@@ -271,9 +309,10 @@ export default function BasicButtonExample() {
 
       const Ai = await RawAi.json();
 
+
       if (!Ai.response) {
+         setaiLoading(false)
          return;
-               setaiLoading(false)
 
       }
 
@@ -570,11 +609,18 @@ export default function BasicButtonExample() {
             style={{
                width: '92%',
                marginBottom: -10,
-               alignItems: 'flex-end',
+               flexDirection: 'row',
+               justifyContent: 'flex-end',
+               gap: 10,
             }}
          >
-            <AwrsWidget awrs={profile?.awrs ?? null} />
-         </View>
+            <Vo2MaxWidget
+               estimatedVo2Max={vo2maxData?.estimated_vo2max ?? null}
+               sourceWindowDays={vo2maxData?.source_window_days ?? null}
+               fresh={vo2maxData?.fresh ?? false}
+            />
+             <AwrsWidget awrs={profile?.awrs ?? null} />
+          </View>
 
             <WeeklyVolumeChartCard
             periods={historyPeriods}
@@ -664,25 +710,77 @@ export default function BasicButtonExample() {
                   color: '#475569',
                   fontSize: 14,
                   lineHeight: 20,
-                  marginBottom: 8,
+                  marginBottom: 10,
                }}
             >
                Vyber beh a otevri detail aktivity.
             </Text>
-            <ScrollView
-               nestedScrollEnabled
-               showsVerticalScrollIndicator={false}
+            <View
+               style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 8,
+               }}
             >
-               {activities.map((activity) => (
-                  <RunItem
-                     onPress={() => OneRunInfo(activity.id)}
-                     name={activity.name}
-                     distance={activity.distance}
-                     date={activity.start_date}
-                     key={activity.id}
-                  ></RunItem>
-               ))}
-            </ScrollView>
+               <Text
+                  style={{
+                     color: '#64748b',
+                     fontSize: 12,
+                     fontWeight: '700',
+                     letterSpacing: 0.6,
+                  }}
+               >
+                  POTAHNI UVNITR
+               </Text>
+               <View
+                  style={{
+                     backgroundColor: '#fff7ed',
+                     borderRadius: 999,
+                     paddingHorizontal: 10,
+                     paddingVertical: 5,
+                     borderWidth: 1,
+                     borderColor: '#fed7aa',
+                  }}
+               >
+                  <Text
+                     style={{
+                        color: '#c2410c',
+                        fontSize: 11,
+                        fontWeight: '800',
+                     }}
+                  >
+                     Scroll
+                  </Text>
+               </View>
+            </View>
+            <View
+               style={{
+                  flex: 1,
+                  backgroundColor: '#f8fafc',
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  borderColor: '#e2e8f0',
+                  paddingHorizontal: 10,
+                  paddingTop: 10,
+                  paddingBottom: 4,
+               }}
+            >
+               <ScrollView
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator
+               >
+                  {activities.map((activity) => (
+                     <RunItem
+                        onPress={() => OneRunInfo(activity.id)}
+                        name={activity.name}
+                        distance={activity.distance}
+                        date={activity.start_date}
+                        key={activity.id}
+                     ></RunItem>
+                  ))}
+               </ScrollView>
+            </View>
          </View>
          </ScrollView>
       </View>
