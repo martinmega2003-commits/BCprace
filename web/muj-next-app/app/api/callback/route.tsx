@@ -94,7 +94,7 @@ export async function GET(req: NextRequest){
 
     const statement = db.prepare("INSERT INTO strava_tokens (user_id, athlete_id, access_token, refresh_token, expires_at) VALUES (? ,? , ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET access_token = excluded.access_token, refresh_token = excluded.refresh_token, expires_at = excluded.expires_at")
 
-    const UpdateMedium = db.prepare("UPDATE users SET profile_medium = ?, sex = ?, weight_kg = ? WHERE id = ?")
+    const UpdateMedium = db.prepare("UPDATE users SET profile_medium = ?, sex = ? WHERE id = ?")
 
     const user = searchUserStatement.get(athleteId) as { id: number; strava_athlete_id: number } | undefined
 
@@ -114,7 +114,7 @@ export async function GET(req: NextRequest){
         userID = createUser.lastInsertRowid
     }else{
         userID = user.id
-        UpdateMedium.run(profile_medium, profileData.sex, profileData.weight, user.id)
+        UpdateMedium.run(profile_medium, profileData.sex, user.id)
     }
     
     const sessionId = crypto.randomUUID()

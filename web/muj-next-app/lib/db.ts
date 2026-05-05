@@ -66,6 +66,7 @@ db.exec(`
     intensity REAL,
     trimp REAL,
     Avg_speed REAL,
+    Elevation INTEGER,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
     )
@@ -80,14 +81,6 @@ db.exec(`
     `);
 
 
-
-try {
-  db.exec(`
-ALTER TABLE activities ADD COLUMN Avg_speed REAL
-  `);
-} catch (error) {
-  console.log("Avg_speed existuje");
-}
 
 
 try {
@@ -104,4 +97,13 @@ try {
   `);
 } catch (error) {
   console.log("estimated_vo2max_updated_at existuje");
+}
+
+
+try {
+  db.exec(`
+    ALTER TABLE activities ADD COLUMN Elevation INTEGER
+  `);
+} catch (error) {
+  console.log("Elevation existuje");
 }

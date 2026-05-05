@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from "react-native";
+import * as Haptics from 'expo-haptics';
 
 
 
@@ -81,7 +82,13 @@ export default function WeeklyVolumeStrip({thisWeekVolume, WeekData, onSelectDay
                 const isActive = selectedDay?.day === item.day            
 
                 return(
-                <Pressable    key={item.day} onPress={() => onSelectDay(item)}>
+                <Pressable
+                  key={item.day}
+                  onPress={async () => {
+                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onSelectDay(item);
+                  }}
+                >
                   <View
                      style={{
                         alignItems: 'center',

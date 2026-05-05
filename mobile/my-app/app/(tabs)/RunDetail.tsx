@@ -25,7 +25,7 @@ const [Activity, setActivity] = useState<{
       max_heartrate: number | null;
       intensity: number | null;
       trimp: number | null;
-      Avg_speed: number | null;
+      pace_min_per_km: number | null;
       created_at: string;
       paceBaseline: number | null;
       paceDelta: number | null;
@@ -36,7 +36,7 @@ const [Activity, setActivity] = useState<{
       name: string;
       distance: number;
       start_date: string;
-      Avg_speed: number | null;
+      pace_min_per_km: number | null;
     }[]>([]);
 
         const params = useLocalSearchParams();
@@ -277,7 +277,7 @@ async function loadActivity() {
         max_heartrate: activityData.max_heartrate,
         intensity: activityData.intensity,
         trimp: activityData.trimp,
-        Avg_speed: activityData.Avg_speed,
+        pace_min_per_km: activityData.pace_min_per_km,
         created_at: activityData.created_at,
         paceBaseline: ActivityJson.paceBaseline,
         paceDelta: ActivityJson.paceDelta
@@ -410,7 +410,7 @@ async function loadActivity() {
     >
       <Text style={{ color: '#64748b', fontSize: 12, fontWeight: '600' }}>Tempo</Text>
       <Text style={{ color: '#0f172a', fontSize: 20, fontWeight: '700' }}>
-        {formatPace(Activity?.Avg_speed)}
+        {formatPace(Activity?.pace_min_per_km)}
       </Text>
       <Text style={{ color: paceInfo.color, fontSize: 13, lineHeight: 18 }}>
         {paceInfo.text}
@@ -529,8 +529,8 @@ async function loadActivity() {
         name={run.name}
         date={formatDate(run.start_date)}
         distance={run.distance}
-        pace= {run.Avg_speed}
-        isFaster={Activity?.Avg_speed != null && run.Avg_speed != null ? run.Avg_speed < Activity.Avg_speed : null}
+        pace= {run.pace_min_per_km}
+        isFaster={Activity?.pace_min_per_km != null && run.pace_min_per_km != null ? run.pace_min_per_km < Activity.pace_min_per_km : null}
 
         onPress={()=>
           router.push({

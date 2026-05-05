@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Dimensions, Pressable, Text, View } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
+import * as Haptics from 'expo-haptics';
 
 type ChartRange = '12' | '24' | 'all';
 
@@ -100,7 +101,8 @@ export default function WeeklyVolumeChartCard({
             return (
               <Pressable
                 key={option.value}
-                onPress={() => {
+                onPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setSelectedPeriod(null);
                   onChangeRange(option.value);
                 }}
