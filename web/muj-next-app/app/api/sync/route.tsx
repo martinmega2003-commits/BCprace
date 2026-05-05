@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ ok: false, message: "Chybi activities" });
         }
 
-        const insertActivityUserStatment = db.prepare("INSERT INTO activities (id, user_id, name, distance, moving_time, elapsed_time, type, start_date, average_cadence, average_speed, max_speed, average_heartrate, max_heartrate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET user_id = excluded.user_id, name = excluded.name, distance = excluded.distance, moving_time = excluded.moving_time, elapsed_time = excluded.elapsed_time, type = excluded.type, start_date = excluded.start_date, average_cadence = excluded.average_cadence, average_speed = excluded.average_speed, max_speed = excluded.max_speed, average_heartrate = excluded.average_heartrate, max_heartrate = excluded.max_heartrate")
+        const insertActivityUserStatment = db.prepare("INSERT INTO activities (id, user_id, name, distance, moving_time, elapsed_time, type, start_date, average_cadence, average_speed, max_speed, average_heartrate, max_heartrate, Elevation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?) ON CONFLICT(id) DO UPDATE SET user_id = excluded.user_id, name = excluded.name, distance = excluded.distance, moving_time = excluded.moving_time, elapsed_time = excluded.elapsed_time, type = excluded.type, start_date = excluded.start_date, average_cadence = excluded.average_cadence, average_speed = excluded.average_speed, max_speed = excluded.max_speed, average_heartrate = excluded.average_heartrate, max_heartrate = excluded.max_heartrate, Elevation = excluded.Elevation")
 
         for (let i = 0; i < activities.length; i++) {
             const activity = activities[i]
@@ -65,7 +65,9 @@ export async function GET(req: NextRequest) {
             activity.average_speed,
             activity.max_speed,
             activity.average_heartrate,
-            activity.max_heartrate
+            activity.max_heartrate,
+            activity.total_elevation_gain,
+
             );
     }
 
@@ -73,6 +75,7 @@ export async function GET(req: NextRequest) {
     await fetch(`${pythonApiUrl}/CalHRmax?user_id=${userRow.user_id}`)
     await fetch(`${pythonApiUrl}/HRR?user_id=${userRow.user_id}`)
     await fetch(`${pythonApiUrl}/IntesityCalcul?user_id=${userRow.user_id}`)
+    await fetch(`${pythonApiUrl}/avg?user_id=${userRow.user_id}`)
     await fetch(`${pythonApiUrl}/Trimp?user_id=${userRow.user_id}`)
     await fetch(`${pythonApiUrl}/awrs?user_id=${userRow.user_id}`)
 

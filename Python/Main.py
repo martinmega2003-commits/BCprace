@@ -593,7 +593,7 @@ def read_root(user_id: int):
 
 
 
-'''
+
 @app.get("/aiTraining")
 def read_root(user_id: int, activity_id: int):
     endpoint = AZURE_OPENAI_ENDPOINT
@@ -607,9 +607,8 @@ def read_root(user_id: int, activity_id: int):
 
     cursor.execute(
         """SELECT id, name, distance, moving_time, elapsed_time, type, start_date,
-                  average_heartrate, max_heartrate, intensity, trimp, Avg_speed
-           FROM activities
-           WHERE user_id = ? AND id = ?""",
+                average_heartrate, max_heartrate, intensity, trimp, Avg_speed AS pace_min_per_km
+        FROM activities   WHERE user_id = ? AND id = ?""",
         (user_id, activity_id)
     )
     activity_row = cursor.fetchone()
@@ -629,35 +628,51 @@ def read_root(user_id: int, activity_id: int):
         return {"message": "chybi awrs"}
 
     awrs = raw_awrs["awrs"]
-    conn.close()
+    distance = activity["distance"]
+    
+    
+    minDistance = distance * 0.8 
+    maxDistance = distance * 1.2
 
-    client = OpenAI(
-        base_url=endpoint,
-        api_key=api_key
+    cursor.execute(
+        """
+        SELECT id, user_id, name, distance, moving_time, elapsed_time, type, start_date, Avg_speed AS pace_min_per_km, created_at
+        FROM activities
+        WHERE user_id = ? AND type = 'Run' AND id != ? AND distance BETWEEN ? AND ?
+        ORDER BY start_date DESC
+        LIMIT 5
+        """,
+        (user_id, activity_id, minDistance, maxDistance)
     )
 
-    completion = client.chat.completions.create(
-        temperature=0,
-        model=deployment_name,
-        messages=[
-            {
-                "role": "system",
-                "content": AZURE_OPENAI_SYSTEM_PROMPT2
-            },
-            {
-                "role": "user",
-                "content": f"Vyhodnoť pouze tento jeden trénink. Aktivita JSON: {json_activity}. Aktuální AWRS uživatele: {awrs}. Nevytvářej kontext, který není ve vstupu. Vrať pouze požadovaný JSON.",
-            },
-        ],
-        response_format={"type": "json_object"},
-    )
-
-    x = completion.choices[0].message
-
-    return {"response": x}
+    recent_runs_raw = cursor.fetchall()
+    
 
 
-'''
+    RecentRuns = [dict(row) for row in recent_runs_raw]
+
+    RecentPaces=[]
+
+    for activity in RecentRuns:
+        if activity["pace_min_per_km"] != None:
+            RecentPaces.append(activity["pace_min_per_km"])
+        else:
+            continue
+
+
+    return {
+        "distance": distance,
+        "maxDistance": maxDistance,
+        "minDistance": minDistance,
+        "RecentRuns ": RecentRuns,
+        "DistanceDict": RecentPaces,
+
+
+    }
+
+
+
+
 
 @app.get("/VO2MaxCalcul")
 def read_root(user_id: int):
@@ -688,7 +703,7 @@ def read_root(user_id: int):
 
         cursor.execute(
             """
-            SELECT moving_time, average_heartrate, distance, average_speed, start_date, id
+            SELECT moving_time, average_heartrate, distance, average_speed, start_date, Elevation, id
             FROM activities
             WHERE user_id = ? AND type = 'Run' AND start_date >= ?
             """,
@@ -707,8 +722,14 @@ def read_root(user_id: int):
                 continue
             if activity["average_speed"] is None or activity["average_speed"] <= 0:
                 continue
+            if activity["Elevation"] is not None:
+                elevation_per_km = activity["Elevation"] / (activity["distance"] / 1000)
+
+                if elevation_per_km > 20:
+                    continue
 
             clean_activity.append(dict(activity))
+
 
         vo2_candidates = []
 

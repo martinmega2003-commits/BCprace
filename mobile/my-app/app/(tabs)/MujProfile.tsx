@@ -1,7 +1,9 @@
-import { Alert, Image, Keyboard, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Animated, Image, Keyboard, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { router } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+
 
 export default function MujProfile() {
   const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.50.214:3000';
@@ -20,10 +22,17 @@ export default function MujProfile() {
   const [birthDateInput, setBirthDateInput] = useState('');
   const [weightInput, setWeightInput] = useState('');
   const [restheart, setRestHeart] = useState('');
+  const [saveBanner, setSaveBanner] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+  const saveToastOffset = useRef(new Animated.Value(12)).current;
+  const saveToastOpacity = useRef(new Animated.Value(0)).current;
   const params = useLocalSearchParams();
   const sessionId = params.session_id;
 
   async function Back() {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
   }
 
@@ -73,10 +82,12 @@ export default function MujProfile() {
       }),
     });
     if (!Save.ok) {
+      setSaveBanner({ type: 'error', message: 'Profil se nepodarilo ulozit.' });
       return;
     }
 
     await LoadProfile();
+    setSaveBanner({ type: 'success', message: 'Profil byl ulozen.' });
   }
 
   function HandleBirthDateChange(text: string) {
@@ -146,6 +157,46 @@ export default function MujProfile() {
       setRestHeart(profile.rest_heartrate?.toString() ?? '');
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (!saveBanner) {
+      return;
+    }
+
+    Animated.parallel([
+      Animated.timing(saveToastOpacity, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(saveToastOffset, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    const timeout = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(saveToastOpacity, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+        Animated.timing(saveToastOffset, {
+          toValue: 12,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]).start(({ finished }) => {
+        if (finished) {
+          setSaveBanner(null);
+        }
+      });
+    }, 1900);
+
+    return () => clearTimeout(timeout);
+  }, [saveBanner]);
 
   return (
     <ScrollView
@@ -390,21 +441,52 @@ export default function MujProfile() {
           }}
         />
 
-        <Pressable
-          onPress={Ulozit}
-          style={({ pressed }) => ({
-            backgroundColor: '#fc4c02',
-            borderRadius: 16,
-            paddingVertical: 14,
-            alignItems: 'center',
-            marginTop: 8,
-            opacity: pressed ? 0.8 : 1,
-          })}
-        >
-          <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '900' }}>
-            Ulozit
-          </Text>
-        </Pressable>
+        <View style={{ marginTop: 8 }}>
+          {saveBanner ? (
+            <Animated.View
+              style={{
+                alignSelf: 'center',
+                marginBottom: 10,
+                backgroundColor: saveBanner.type === 'success' ? '#dcfce7' : '#fee2e2',
+                borderColor: saveBanner.type === 'success' ? '#86efac' : '#fca5a5',
+                borderWidth: 1,
+                borderRadius: 999,
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                opacity: saveToastOpacity,
+                transform: [{ translateY: saveToastOffset }],
+              }}
+            >
+              <Text
+                style={{
+                  color: saveBanner.type === 'success' ? '#166534' : '#b91c1c',
+                  fontSize: 12,
+                  fontWeight: '800',
+                }}
+              >
+                {saveBanner.message}
+              </Text>
+            </Animated.View>
+          ) : null}
+          <Pressable
+            onPress={async () => {
+              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Ulozit();
+            }}
+            style={({ pressed }) => ({
+              backgroundColor: '#fc4c02',
+              borderRadius: 16,
+              paddingVertical: 14,
+              alignItems: 'center',
+              opacity: pressed ? 0.8 : 1,
+            })}
+          >
+
+            <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '900' }}>
+              Ulozit
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </ScrollView>
   );

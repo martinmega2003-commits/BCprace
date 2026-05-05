@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 type SimilarRunItemProps = {
   name: string;
@@ -35,7 +36,10 @@ export default function SimilarRunItem({
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={async () => {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
       style={{
         backgroundColor: '#f8fafc',
         borderRadius: 18,

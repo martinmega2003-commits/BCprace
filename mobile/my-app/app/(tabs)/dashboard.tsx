@@ -415,7 +415,7 @@ export default function BasicButtonExample() {
             }}
             style={{
                position: 'absolute',
-               top: 20,
+               top: 33,
                left: 20,
                zIndex: 110,
                backgroundColor: '#111827',
@@ -511,9 +511,12 @@ export default function BasicButtonExample() {
                    </Text>
 
                    <View style={{ gap: 10, flex: 1 }}>
-                      <Pressable
-                         onPress={MyProfile}
-                         style={({ pressed }) => ({
+                       <Pressable
+                          onPress={async () => {
+                             await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                             MyProfile();
+                          }}
+                          style={({ pressed }) => ({
                             backgroundColor: '#fff7ed',
                             borderRadius: 16,
                             paddingHorizontal: 15,
@@ -546,9 +549,12 @@ export default function BasicButtonExample() {
                          </Text>
                       </Pressable>
 
-                      <Pressable
-                         onPress={Logout}
-                         style={({ pressed }) => ({
+                       <Pressable
+                          onPress={async () => {
+                             await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                             Logout();
+                          }}
+                          style={({ pressed }) => ({
                             marginTop: 'auto',
                             marginBottom: '15%',
                             backgroundColor: '#ffffff',
@@ -584,10 +590,13 @@ export default function BasicButtonExample() {
                       </Pressable>
                    </View>
                 </View>
-                <Pressable
-                   onPress={() => setisMenuOpen(false)}
-                   style={{ flex: 1 }}
-                />
+                 <Pressable
+                    onPress={async () => {
+                       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                       setisMenuOpen(false);
+                    }}
+                    style={{ flex: 1 }}
+                 />
              </View>
          </Modal>
          <ScrollView
@@ -647,10 +656,13 @@ export default function BasicButtonExample() {
             {AiAnswer ? (
                <AiInsightCard {...AiAnswer} />
             ) : (
-               <Pressable
-                  onPress={Aicall}
-                  
-                  style={({ pressed }) => ({
+                <Pressable
+                   onPress={async () => {
+                      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Aicall();
+                   }}
+                   
+                   style={({ pressed }) => ({
                      width: '92%',
                      marginTop: 18,
                      backgroundColor: '#111827',
