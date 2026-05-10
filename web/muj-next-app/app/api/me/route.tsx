@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
 
     const selectUserStatement = db.prepare("SELECT user_id FROM sessions WHERE id = ?");
-    const UserSelectStatement = db.prepare("SELECT username, profile_medium, sex, height_cm, birth_date, weight_kg, rest_heartrate, awrs FROM users WHERE id=?")
+    const UserSelectStatement = db.prepare("SELECT username, profile_medium, sex, height_cm, birth_date, weight_kg, rest_heartrate, awrs, ai_status, ai_badge, ai_headline, ai_summary, ai_risks, ai_actions, ai_updated_at FROM users WHERE id=?")
             
     const userRow = selectUserStatement.get(sessionID) as { user_id: number } | undefined;
 
@@ -36,6 +36,13 @@ export async function GET(req: NextRequest) {
         weight_kg: number | null;
         rest_heartrate: number | null
         awrs: number | null
+        ai_status: string | null
+        ai_badge: string | null
+        ai_headline: string | null
+        ai_summary: string | null
+        ai_risks: string | null
+        ai_actions: string | null
+        ai_updated_at: string | null
         }
     | undefined;
 
@@ -55,7 +62,14 @@ return NextResponse.json({
     birth_date: profileRow.birth_date,
     weight_kg: profileRow.weight_kg,
     rest_heartrate: profileRow.rest_heartrate,
-    awrs: profileRow.awrs
+    awrs: profileRow.awrs,
+    ai_status: profileRow.ai_status,
+    ai_badge: profileRow.ai_badge,
+    ai_headline: profileRow.ai_headline,
+    ai_summary: profileRow.ai_summary,
+    ai_risks: profileRow.ai_risks,
+    ai_actions: profileRow.ai_actions,
+    ai_updated_at: profileRow.ai_updated_at,
 });
 }
 

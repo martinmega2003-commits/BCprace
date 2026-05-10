@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     
     const paceExpression = "CASE WHEN Avg_speed IS NOT NULL THEN Avg_speed WHEN distance IS NOT NULL AND distance > 0 AND moving_time IS NOT NULL THEN moving_time / 60.0 / (distance / 1000.0) ELSE NULL END AS pace_min_per_km";
     const selectUserStatement = db.prepare("SELECT user_id FROM sessions WHERE id = ?");
-    const SelectActivityStatement = db.prepare(`SELECT id, user_id, name, distance, moving_time, elapsed_time, type, start_date, average_cadence, average_speed, max_speed, average_heartrate, max_heartrate, intensity, trimp, estimated_vo2, ${paceExpression}, created_at FROM activities WHERE user_id = ? AND id = ? `)
+    const SelectActivityStatement = db.prepare(`SELECT id, user_id, name, distance, moving_time, elapsed_time, type, start_date, average_cadence, average_speed, max_speed, average_heartrate, max_heartrate, intensity, trimp, estimated_vo2, ai_badge, ai_headline, ai_summary, ai_effort, ai_risks, ai_actions, ai_updated_at, ${paceExpression}, created_at FROM activities WHERE user_id = ? AND id = ? `)
     const SelectRecentRunsStatement = db.prepare(`SELECT id, user_id, name, distance, moving_time, elapsed_time, type, start_date, ${paceExpression}, created_at FROM activities WHERE user_id = ? AND type = 'Run' AND id != ? AND distance BETWEEN ? AND ? ORDER BY start_date DESC LIMIT 5`)
 
     const userRow = selectUserStatement.get(sessionID) as { user_id: number } | undefined;

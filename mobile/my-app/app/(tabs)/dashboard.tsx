@@ -132,17 +132,21 @@ export default function BasicButtonExample() {
 
    const [AiAnswer, setAiAnswer] = useState<{
       status: string,
+      ai_badge?: string | null,
       headline: string,
       summary: string,
       risks: string[],
       actions: string[],
-   }| null>(null)
+      updated_at?: string | null,
+    }| null>(null)
 
    const [vo2maxData, setVo2MaxData] = useState<{
       estimated_vo2max: number | null;
       source_window_days: number | null;
       fresh: boolean;
    } | null>(null);
+
+   const [showDashboardAiInsight, setShowDashboardAiInsight] = useState(true);
 
 
 
@@ -238,6 +242,23 @@ export default function BasicButtonExample() {
          if (!profileJson.ok) {
             return;
          }
+         console.log("profileJson", profileJson);
+
+         let parsedAiRisks: string[] = [];
+         let parsedAiActions: string[] = [];
+
+         try {
+            parsedAiRisks = profileJson.ai_risks ? JSON.parse(profileJson.ai_risks) : [];
+         } catch {
+            parsedAiRisks = [];
+         }
+
+         try {
+            parsedAiActions = profileJson.ai_actions ? JSON.parse(profileJson.ai_actions) : [];
+         } catch {
+            parsedAiActions = [];
+         }
+
          setProfile({
             username: profileJson.username,
             profile_medium: profileJson.profile_medium,
@@ -246,6 +267,20 @@ export default function BasicButtonExample() {
             rest_heartrate: profileJson.rest_heartrate,
             awrs: profileJson.awrs,
          });
+
+         if (profileJson.ai_headline && profileJson.ai_summary) {
+            setAiAnswer({
+               status: profileJson.ai_status ?? "ok",
+               ai_badge: profileJson.ai_badge ?? null,
+               headline: profileJson.ai_headline,
+               summary: profileJson.ai_summary,
+               risks: parsedAiRisks,
+               actions: parsedAiActions,
+               updated_at: profileJson.ai_updated_at ?? null,
+            });
+         } else {
+            setAiAnswer(null);
+         }
       }
    }
 
@@ -295,28 +330,27 @@ export default function BasicButtonExample() {
 
       setaiLoading(true)
 
+      try {
+         if (!sessionId) {
+            return;
+         }
 
-      if (!sessionId) {
-               setaiLoading(false)
-         return;
-      }
+         const RawAi = await fetch(`${API_BASE_URL}/api/ai?session_id=${sessionId}`);
+         if (!RawAi.ok) {
+            return;
+         }
 
-      const RawAi = await fetch(`${API_BASE_URL}/api/ai?session_id=${sessionId}`);
-      if (!RawAi.ok) {
-               setaiLoading(false)
-         return;
-      }
+         const Ai = await RawAi.json();
 
-      const Ai = await RawAi.json();
+         if (!Ai.response) {
+            return;
+         }
 
-
-      if (!Ai.response) {
+         setAiAnswer(Ai.response)
+         await LoadProfile()
+      } finally {
          setaiLoading(false)
-         return;
-
       }
-
-      setAiAnswer(Ai.response)
    }
 
 
@@ -457,139 +491,142 @@ export default function BasicButtonExample() {
                       elevation: 8,
                    }}
                 >
-                   <Text
-                      style={{
-                         color: '#fc4c02',
-                         fontSize: 12,
-                         fontWeight: '900',
-                         letterSpacing: 1.4,
-                         marginBottom: 16,
-                      }}
-                   >
-                      MENU
-                   </Text>
-                   {profile?.profile_medium ? (
-                      <Image
-                         source={{ uri: profile.profile_medium }}
-                         style={{
-                            width: 58,
-                            height: 58,
-                            borderRadius: 29,
-                            marginBottom: 12,
-                            borderWidth: 2,
-                            borderColor: '#fed7aa',
-                         }}
-                      />
-                   ) : (
-                      <View
-                         style={{
-                            width: 58,
-                            height: 58,
-                            borderRadius: 29,
-                            backgroundColor: '#fff7ed',
-                            marginBottom: 12,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderWidth: 2,
-                            borderColor: '#fed7aa',
-                         }}
-                      >
-                         <Text style={{ color: '#fc4c02', fontWeight: '900' }}>
-                            {profile?.username?.[0]?.toUpperCase() ?? '?'}
-                         </Text>
-                      </View>
-                   )}
-                   <Text
-                      style={{
-                         color: '#111827',
-                         fontSize: 18,
-                         fontWeight: '800',
-                         marginBottom: 20,
-                      }}
-                   >
-                      {profile?.username ?? 'Profil'}
-                   </Text>
-
-                   <View style={{ gap: 10, flex: 1 }}>
-                       <Pressable
-                          onPress={async () => {
-                             await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                             MyProfile();
-                          }}
-                          style={({ pressed }) => ({
-                            backgroundColor: '#fff7ed',
-                            borderRadius: 16,
-                            paddingHorizontal: 15,
-                            paddingVertical: 13,
-                            borderWidth: 1,
-                            borderColor: '#fed7aa',
-                            opacity: pressed ? 0.75 : 1,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                         })}
-                      >
-                         <Text
-                            style={{
-                               color: '#9a3412',
-                               fontSize: 14,
-                               fontWeight: '800',
-                            }}
-                         >
-                            Muj ucet
-                         </Text>
+                   <View style={{ flex: 1, justifyContent: 'space-between' }}>
+                      <View>
                          <Text
                             style={{
                                color: '#fc4c02',
-                               fontSize: 16,
+                               fontSize: 12,
                                fontWeight: '900',
+                               letterSpacing: 1.4,
+                               marginBottom: 16,
                             }}
                          >
-                            +
+                            MENU
                          </Text>
-                      </Pressable>
-
-                       <Pressable
-                          onPress={async () => {
-                             await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                             Logout();
-                          }}
-                          style={({ pressed }) => ({
-                            marginTop: 'auto',
-                            marginBottom: '15%',
-                            backgroundColor: '#ffffff',
-                            borderRadius: 16,
-                            paddingHorizontal: 15,
-                            paddingVertical: 13,
-                            borderWidth: 1,
-                            borderColor: '#e5e7eb',
-                            opacity: pressed ? 0.75 : 1,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                         })}
-                      >
+                         {profile?.profile_medium ? (
+                            <Image
+                               source={{ uri: profile.profile_medium }}
+                               style={{
+                                  width: 58,
+                                  height: 58,
+                                  borderRadius: 29,
+                                  marginBottom: 12,
+                                  borderWidth: 2,
+                                  borderColor: '#fed7aa',
+                               }}
+                            />
+                         ) : (
+                            <View
+                               style={{
+                                  width: 58,
+                                  height: 58,
+                                  borderRadius: 29,
+                                  backgroundColor: '#fff7ed',
+                                  marginBottom: 12,
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderWidth: 2,
+                                  borderColor: '#fed7aa',
+                               }}
+                            >
+                               <Text style={{ color: '#fc4c02', fontWeight: '900' }}>
+                                  {profile?.username?.[0]?.toUpperCase() ?? '?'}
+                               </Text>
+                            </View>
+                         )}
                          <Text
                             style={{
-                               color: '#64748b',
-                               fontSize: 14,
+                               color: '#111827',
+                               fontSize: 18,
                                fontWeight: '800',
+                               marginBottom: 20,
                             }}
                          >
-                            Logout
+                            {profile?.username ?? 'Profil'}
                          </Text>
-                         <Text
-                            style={{
-                               color: '#ef4444',
-                               fontSize: 14,
-                               fontWeight: '900',
-                            }}
-                         >
-                            X
-                         </Text>
-                      </Pressable>
+
+                         <View style={{ gap: 10 }}>
+                            <Pressable
+                               onPress={async () => {
+                                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                  MyProfile();
+                               }}
+                               style={({ pressed }) => ({
+                                 backgroundColor: '#fff7ed',
+                                 borderRadius: 16,
+                                 paddingHorizontal: 15,
+                                 paddingVertical: 13,
+                                 borderWidth: 1,
+                                 borderColor: '#fed7aa',
+                                 opacity: pressed ? 0.75 : 1,
+                                 flexDirection: 'row',
+                                 alignItems: 'center',
+                                 justifyContent: 'space-between',
+                              })}
+                           >
+                              <Text
+                                 style={{
+                                    color: '#9a3412',
+                                    fontSize: 14,
+                                    fontWeight: '800',
+                                 }}
+                              >
+                                 Muj ucet
+                              </Text>
+                              <Text
+                                 style={{
+                                    color: '#fc4c02',
+                                    fontSize: 16,
+                                    fontWeight: '900',
+                                 }}
+                              >
+                                 +
+                              </Text>
+                           </Pressable>
+                         </View>
+                      </View>
+
+                      <Pressable
+                         onPress={async () => {
+                            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            Logout();
+                         }}
+                         style={({ pressed }) => ({
+                           marginTop: 20,
+                           backgroundColor: '#ffffff',
+                           borderRadius: 16,
+                           paddingHorizontal: 15,
+                           paddingVertical: 13,
+                           borderWidth: 1,
+                           borderColor: '#e5e7eb',
+                           opacity: pressed ? 0.75 : 1,
+                           flexDirection: 'row',
+                           alignItems: 'center',
+                           justifyContent: 'space-between',
+                        })}
+                     >
+                        <Text
+                           style={{
+                              color: '#64748b',
+                              fontSize: 14,
+                              fontWeight: '800',
+                           }}
+                        >
+                           Logout
+                        </Text>
+                        <Text
+                           style={{
+                              color: '#ef4444',
+                              fontSize: 14,
+                              fontWeight: '900',
+                           }}
+                        >
+                           X
+                        </Text>
+                     </Pressable>
                    </View>
-                </View>
+                 </View>
                  <Pressable
                     onPress={async () => {
                        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -653,56 +690,104 @@ export default function BasicButtonExample() {
 
                   selectedDay={dayClicked}>
             </WeeklyVolumeStrip>
-            {AiAnswer ? (
-               <AiInsightCard {...AiAnswer} />
-            ) : (
-                <Pressable
-                   onPress={async () => {
-                      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      Aicall();
-                   }}
-                   
-                   style={({ pressed }) => ({
-                     width: '92%',
-                     marginTop: 18,
-                     backgroundColor: '#111827',
-                     borderRadius: 20,
-                     paddingVertical: 16,
+            <View
+               style={{
+                  width: '92%',
+                  marginTop: 18,
+                  backgroundColor: '#ffffff',
+                  borderRadius: 24,
+                  paddingTop: 15,
+                  paddingBottom: 15,
+                  paddingRight: 15,
+                  paddingLeft: 15,
+                  borderWidth: 1,
+                  borderColor: '#e5e7eb',
+                  gap: 14,
+               }}
+            >
+               <Pressable
+                  onPress={async () => {
+                     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                     setShowDashboardAiInsight((prev) => !prev);
+                  }}
+                  style={{
+                     flexDirection: 'row',
                      alignItems: 'center',
-                     opacity: pressed ? 0.8 : 1,
-                  })}
+                     justifyContent: 'space-between',
+                  }}
                >
-                  <Text
-                     style={{
-                        color: '#ffffff',
-                        fontSize: 15,
-                        fontWeight: '700',
-                     }}
-                  >
-                     {aiLoading ? 'Generating...' : 'Generate AI Insight'}
+                  <Text style={{ color: '#0f172a', fontSize: 18, fontWeight: '700' }}>
+                     AI insight
+                  </Text>
+                  <Text style={{ color: '#64748b', fontSize: 18, fontWeight: '700' }}>
+                     {showDashboardAiInsight ? '−' : '+'}
                   </Text>
                </Pressable>
-            )}
+
+               {showDashboardAiInsight ? (
+                  AiAnswer ? (
+                     <AiInsightCard
+                        {...AiAnswer}
+                        embedded
+                        showStars={false}
+                        reloading={aiLoading}
+                        onReload={async () => {
+                           await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                           await Aicall();
+                        }}
+                     />
+                  ) : (
+                     <Pressable
+                        onPress={async () => {
+                           await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                           Aicall();
+                        }}
+                        style={({ pressed }) => ({
+                          backgroundColor: '#111827',
+                          borderRadius: 20,
+                          paddingVertical: 16,
+                          alignItems: 'center',
+                          opacity: pressed ? 0.8 : 1,
+                       })}
+                    >
+                       <Text
+                          style={{
+                             color: '#ffffff',
+                             fontSize: 15,
+                             fontWeight: '700',
+                          }}
+                       >
+                          {aiLoading ? 'Generating...' : 'Generate AI Insight'}
+                       </Text>
+                    </Pressable>
+                  )
+               ) : null}
+            </View>
 
             <View
                style={{
                   width: '92%',
-                  marginTop: 10,
-                  height: 360,
+                  marginTop: 12,
+                  height: 470,
                   backgroundColor: '#ffffff',
-                  borderRadius: 24,
-                  padding: 18,
+                  borderRadius: 28,
+                  padding: 20,
                   borderWidth: 1,
                   borderColor: '#e5e7eb',
+                  shadowColor: '#0f172a',
+                  shadowOpacity: 0.05,
+                  shadowRadius: 12,
+                  shadowOffset: { width: 0, height: 4 },
+                  elevation: 2,
             }}
          >
             <Text
                style={{
                   color: '#fc4c02',
                   fontSize: 12,
-                  fontWeight: '700',
-                  letterSpacing: 1,
-                  marginBottom: 8,
+                  fontWeight: '800',
+                  letterSpacing: 1.2,
+                  marginBottom: 10,
                }}
             >
                Běhy
@@ -710,9 +795,9 @@ export default function BasicButtonExample() {
             <Text
                style={{
                   color: '#0f172a',
-                  fontSize: 20,
-                  fontWeight: '700',
-                  marginBottom: 2,
+                  fontSize: 24,
+                  fontWeight: '800',
+                  marginBottom: 6,
                }}
             >
                Tvoje aktivity
@@ -721,48 +806,59 @@ export default function BasicButtonExample() {
                style={{
                   color: '#475569',
                   fontSize: 14,
-                  lineHeight: 20,
-                  marginBottom: 10,
+                  lineHeight: 21,
+                  marginBottom: 14,
                }}
             >
-               Vyber beh a otevri detail aktivity.
+               Poslední běhy na jednom místě.
             </Text>
             <View
                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: 8,
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  marginBottom: 14,
+                  gap: 8,
                }}
             >
-               <Text
-                  style={{
-                     color: '#64748b',
-                     fontSize: 12,
-                     fontWeight: '700',
-                     letterSpacing: 0.6,
-                  }}
-               >
-                  POTAHNI UVNITR
-               </Text>
-               <View
-                  style={{
-                     backgroundColor: '#fff7ed',
-                     borderRadius: 999,
-                     paddingHorizontal: 10,
-                     paddingVertical: 5,
-                     borderWidth: 1,
-                     borderColor: '#fed7aa',
-                  }}
-               >
+               <View style={{ width: '100%', paddingRight: 0, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Text
                      style={{
-                        color: '#c2410c',
+                        color: '#64748b',
+                        fontSize: 12,
+                        fontWeight: '800',
+                        letterSpacing: 0.6,
+                        marginBottom: 0,
+                     }}
+                  >
+                     Scroll seznam běhů
+                  </Text>
+                  <Text
+                     style={{
+                        color: '#475569',
+                        fontSize: 13,
+                        lineHeight: 18,
+                     }}
+                  >
+                     Vyber běh a otevři detail aktivity.
+                  </Text>
+               </View>
+               <View
+                  style={{
+                     backgroundColor: '#111827',
+                     borderRadius: 999,
+                     paddingHorizontal: 12,
+                     paddingVertical: 6,
+                     alignSelf: 'flex-start',
+                   }}
+                >
+                  <Text
+                     style={{
+                        color: '#ffffff',
                         fontSize: 11,
                         fontWeight: '800',
                      }}
                   >
-                     Scroll
+                     {activities.length} běhů
                   </Text>
                </View>
             </View>
@@ -770,18 +866,19 @@ export default function BasicButtonExample() {
                style={{
                   flex: 1,
                   backgroundColor: '#f8fafc',
-                  borderRadius: 18,
+                  borderRadius: 22,
                   borderWidth: 1,
                   borderColor: '#e2e8f0',
-                  paddingHorizontal: 10,
-                  paddingTop: 10,
-                  paddingBottom: 4,
-               }}
+                  paddingHorizontal: 6,
+                  paddingTop: 8,
+                  paddingBottom: 8,
+                  }}
             >
                <ScrollView
                   nestedScrollEnabled
                   showsVerticalScrollIndicator
-               >
+                  contentContainerStyle={{ paddingBottom: 12 }}
+                >
                   {activities.map((activity) => (
                      <RunItem
                         onPress={() => OneRunInfo(activity.id)}
