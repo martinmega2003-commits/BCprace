@@ -74,6 +74,7 @@ export async function GET(req: NextRequest) {
 
     await fetch(`${pythonApiUrl}/CalHRmax?user_id=${userRow.user_id}`)
     await fetch(`${pythonApiUrl}/HRR?user_id=${userRow.user_id}`)
+    await fetch(`${pythonApiUrl}/VO2MaxCalcul?user_id=${userRow.user_id}`)
     await fetch(`${pythonApiUrl}/IntesityCalcul?user_id=${userRow.user_id}`)
     await fetch(`${pythonApiUrl}/avg?user_id=${userRow.user_id}`)
     await fetch(`${pythonApiUrl}/Trimp?user_id=${userRow.user_id}`)

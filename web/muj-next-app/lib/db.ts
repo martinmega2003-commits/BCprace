@@ -67,6 +67,7 @@ db.exec(`
     trimp REAL,
     Avg_speed REAL,
     Elevation INTEGER,
+    estimated_vo2 REAL
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
     )
@@ -80,6 +81,13 @@ db.exec(`
         )
     `);
 
+try {
+  db.exec(`
+    ALTER TABLE activities ADD COLUMN estimated_vo2 REAL
+  `);
+} catch (error) {
+  console.log("estimated_vo2max existuje");
+}
 
 
 

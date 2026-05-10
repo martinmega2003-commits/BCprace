@@ -8,6 +8,15 @@ import * as Haptics from 'expo-haptics';
 
 export default function RunDetail(){
     const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.50.214:3000';
+    const [aiLoading, setAiLoading] = useState(false);
+    const [showLoadMetrics, setShowLoadMetrics] = useState(false);
+    const [aiTrainingInsight, setAiTrainingInsight] = useState<{
+      headline?: string;
+      summary?: string;
+      effort?: string;
+      risks?: string[];
+      actions?: string[];
+    } | null>(null);
     
 const [Activity, setActivity] = useState<{
       id: number;
@@ -25,6 +34,7 @@ const [Activity, setActivity] = useState<{
       max_heartrate: number | null;
       intensity: number | null;
       trimp: number | null;
+      estimated_vo2: number | null;
       pace_min_per_km: number | null;
       created_at: string;
       paceBaseline: number | null;
@@ -248,6 +258,29 @@ function totalLoadInfo(value: number | null | undefined) {
     };
 }
 
+async function loadAiTrainingInsight() {
+    if (!sessionId || !activityId || aiLoading) {
+        return;
+    }
+
+    setAiLoading(true);
+
+    try {
+        const rawInsight = await fetch(`${API_BASE_URL}/api/aiTraining?session_id=${sessionId}&activity_id=${activityId}`);
+        if (!rawInsight.ok) {
+            setAiTrainingInsight(null);
+            return;
+        }
+
+        const insightJson = await rawInsight.json();
+        setAiTrainingInsight(insightJson.response ?? null);
+    } catch {
+        setAiTrainingInsight(null);
+    } finally {
+        setAiLoading(false);
+    }
+}
+
 async function loadActivity() {
     if (!sessionId || !activityId) {
     return
@@ -277,6 +310,7 @@ async function loadActivity() {
         max_heartrate: activityData.max_heartrate,
         intensity: activityData.intensity,
         trimp: activityData.trimp,
+        estimated_vo2: activityData.estimated_vo2,
         pace_min_per_km: activityData.pace_min_per_km,
         created_at: activityData.created_at,
         paceBaseline: ActivityJson.paceBaseline,
@@ -300,7 +334,6 @@ async function loadActivity() {
             : null;
     const trimpMinuteLabel = trimpMinuteInfo(trimpPerMinute);
     const totalLoadLabel = totalLoadInfo(Activity?.trimp);
-
     return(
 <ScrollView
   contentContainerStyle={{ padding: 16, gap: 16, backgroundColor: '#f8fafc' }}
@@ -479,36 +512,136 @@ async function loadActivity() {
       gap: 14,
     }}
   >
+    <Pressable
+      onPress={async () => {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setShowLoadMetrics((prev) => !prev);
+      }}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}
+    >
+      <Text style={{ color: '#0f172a', fontSize: 18, fontWeight: '700' }}>
+        Tep a zatez
+      </Text>
+      <Text style={{ color: '#64748b', fontSize: 18, fontWeight: '700' }}>
+        {showLoadMetrics ? '−' : '+'}
+      </Text>
+    </Pressable>
+
+    {showLoadMetrics ? (
+      <View style={{ gap: 10 }}>
+        <Text style={{ color: '#475569', fontSize: 15 }}>
+          Prumerny tep: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{formatHeartRate(Activity?.average_heartrate)}</Text>
+        </Text>
+        <Text style={{ color: '#475569', fontSize: 15 }}>
+          Maximalni tep v tomto behu: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{formatHeartRate(Activity?.max_heartrate)}</Text>
+        </Text>
+        <Text style={{ color: '#475569', fontSize: 15 }}>
+          Intenzita: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{formatPercent(Activity?.intensity)}</Text>
+        </Text>
+        <Text style={{ color: '#475569', fontSize: 15 }}>
+          Interpretace: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{intensityLabel(Activity?.intensity)}</Text>
+        </Text>
+        <Text style={{ color: '#475569', fontSize: 15 }}>
+          Celkova zatez: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{formatNumber(Activity?.trimp)}</Text>
+        </Text>
+        <Text style={{ color: '#475569', fontSize: 15 }}>
+          Odhadovane VO2 pri tomto behu: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{formatNumber(Activity?.estimated_vo2)}</Text>
+        </Text>
+        <Text style={{ color: totalLoadLabel.color, fontSize: 15, fontWeight: '700' }}>
+          {totalLoadLabel.text}
+        </Text>
+        <Text style={{ color: '#475569', fontSize: 15 }}>
+          Intenzita za minutu: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{formatNumber(trimpPerMinute)}</Text>
+        </Text>
+        <Text style={{ color: trimpMinuteLabel.color, fontSize: 15, fontWeight: '700' }}>
+          {trimpMinuteLabel.text}
+        </Text>
+      </View>
+    ) : null}
+  </View>
+  <View
+    style={{
+      backgroundColor: '#ffffff',
+      borderRadius: 24,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: '#e5e7eb',
+      gap: 14,
+    }}
+  >
     <Text style={{ color: '#0f172a', fontSize: 18, fontWeight: '700' }}>
-      Tep a zatez
+      AI training insight
     </Text>
 
-    <View style={{ gap: 10 }}>
-      <Text style={{ color: '#475569', fontSize: 15 }}>
-        Prumerny tep: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{formatHeartRate(Activity?.average_heartrate)}</Text>
-      </Text>
-      <Text style={{ color: '#475569', fontSize: 15 }}>
-        Maximalni tep v tomto behu: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{formatHeartRate(Activity?.max_heartrate)}</Text>
-      </Text>
-      <Text style={{ color: '#475569', fontSize: 15 }}>
-        Intenzita: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{formatPercent(Activity?.intensity)}</Text>
-      </Text>
-      <Text style={{ color: '#475569', fontSize: 15 }}>
-        Interpretace: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{intensityLabel(Activity?.intensity)}</Text>
-      </Text>
-      <Text style={{ color: '#475569', fontSize: 15 }}>
-        Celkova zatez: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{formatNumber(Activity?.trimp)}</Text>
-      </Text>
-      <Text style={{ color: totalLoadLabel.color, fontSize: 15, fontWeight: '700' }}>
-        {totalLoadLabel.text}
-      </Text>
-      <Text style={{ color: '#475569', fontSize: 15 }}>
-        Intenzita za minutu: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{formatNumber(trimpPerMinute)}</Text>
-      </Text>
-      <Text style={{ color: trimpMinuteLabel.color, fontSize: 15, fontWeight: '700' }}>
-        {trimpMinuteLabel.text}
-      </Text>
-    </View>
+    {!aiTrainingInsight ? (
+      <Pressable
+        onPress={async () => {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          loadAiTrainingInsight();
+        }}
+        style={({ pressed }) => ({
+          backgroundColor: '#fc4c02',
+          borderRadius: 16,
+          paddingVertical: 14,
+          alignItems: 'center',
+          opacity: pressed ? 0.8 : 1,
+        })}
+      >
+        <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>
+          {aiLoading ? 'Generuji insight...' : 'Vygenerovat AI insight'}
+        </Text>
+      </Pressable>
+    ) : (
+      <View style={{ gap: 10 }}>
+        {aiTrainingInsight.headline ? (
+          <Text style={{ color: '#0f172a', fontSize: 17, fontWeight: '700' }}>
+            {aiTrainingInsight.headline}
+          </Text>
+        ) : null}
+
+        {aiTrainingInsight.summary ? (
+          <Text style={{ color: '#475569', fontSize: 15, lineHeight: 22 }}>
+            {aiTrainingInsight.summary}
+          </Text>
+        ) : null}
+
+        {aiTrainingInsight.effort ? (
+          <Text style={{ color: '#475569', fontSize: 15 }}>
+            Narocnost: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{aiTrainingInsight.effort}</Text>
+          </Text>
+        ) : null}
+
+        {aiTrainingInsight.risks && aiTrainingInsight.risks.length > 0 ? (
+          <View style={{ gap: 6 }}>
+            <Text style={{ color: '#0f172a', fontSize: 15, fontWeight: '700' }}>
+              Rizika
+            </Text>
+            {aiTrainingInsight.risks.map((risk, index) => (
+              <Text key={`${risk}-${index}`} style={{ color: '#475569', fontSize: 15, lineHeight: 21 }}>
+                • {risk}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
+        {aiTrainingInsight.actions && aiTrainingInsight.actions.length > 0 ? (
+          <View style={{ gap: 6 }}>
+            <Text style={{ color: '#0f172a', fontSize: 15, fontWeight: '700' }}>
+              Dalsi kroky
+            </Text>
+            {aiTrainingInsight.actions.map((action, index) => (
+              <Text key={`${action}-${index}`} style={{ color: '#475569', fontSize: 15, lineHeight: 21 }}>
+                • {action}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+      </View>
+    )}
   </View>
   <View
     style={{

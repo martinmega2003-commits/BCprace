@@ -232,7 +232,7 @@ def read_root(user_id: int):
     
     cursor = conn.cursor()
 
-    cursor.execute("SELECT max_heartrate_calculated, rest_heartrate, hrr FROM users WHERE id = ?",(user_id,))
+    cursor.execute("SELECT max_heartrate_calculated, rest_heartrate, hrr, estimated_vo2max FROM users WHERE id = ?",(user_id,))
 
     userRow = cursor.fetchone()
 
@@ -250,7 +250,10 @@ def read_root(user_id: int):
     hrr = userRow["hrr"]
     if hrr is None:
         return {"message": "chybi hrr"}
-    
+
+    estimated_vo2max = userRow["estimated_vo2max"]
+    if estimated_vo2max is None:
+        return {"message": "chybi estimated_vo2max"}
 
     cursor.execute("SELECT average_heartrate, id FROM activities WHERE user_id = ?",(user_id,))
 
@@ -272,14 +275,25 @@ def read_root(user_id: int):
     intenzita= []
 
     for Activity in average_hearrate_rows:
+        intenzita_value = round((Activity["average_heartrate"] - rest_heartrate) / hrr, 3)
+
+        estimated_vo2 = None
+        if estimated_vo2max is not None:
+            estimated_vo2 = round(3.5 + intenzita_value * (estimated_vo2max - 3.5), 3)
+
         intenzita.append({
             "id": Activity["id"],
-            "intenzita": round((Activity["average_heartrate"] - rest_heartrate) / hrr, 3)
+            "intenzita": intenzita_value,
+            "estimated_vo2": estimated_vo2,
         })
+
 
     
     for oneintenzita in intenzita:
-        cursor.execute("UPDATE activities SET intensity = ? WHERE id = ? AND type = 'Run' ", (oneintenzita["intenzita"], oneintenzita["id"])) 
+        cursor.execute(
+            "UPDATE activities SET intensity = ?, estimated_vo2 = ? WHERE id = ? AND type = 'Run'",
+            (oneintenzita["intenzita"], oneintenzita["estimated_vo2"], oneintenzita["id"])
+            )
 
 
     conn.commit()
@@ -607,10 +621,11 @@ def read_root(user_id: int, activity_id: int):
 
     cursor.execute(
         """SELECT id, name, distance, moving_time, elapsed_time, type, start_date,
-                average_heartrate, max_heartrate, intensity, trimp, Avg_speed AS pace_min_per_km
-        FROM activities   WHERE user_id = ? AND id = ?""",
+                average_heartrate, max_heartrate, intensity, trimp, Avg_speed AS pace_min_per_km, estimated_vo2
+        FROM activities WHERE user_id = ? AND id = ?""",
         (user_id, activity_id)
     )
+
     activity_row = cursor.fetchone()
 
     if not activity_row:
@@ -629,7 +644,30 @@ def read_root(user_id: int, activity_id: int):
 
     awrs = raw_awrs["awrs"]
     distance = activity["distance"]
-    
+    pace_min_per_km = activity['pace_min_per_km']
+
+    current_activity_date = datetime.fromisoformat(activity["start_date"].replace("Z", "+00:00")).replace(tzinfo=None)
+
+    cursor.execute(
+        """
+        SELECT start_date
+        FROM activities
+        WHERE user_id = ? AND start_date < ?
+        ORDER BY start_date DESC
+        LIMIT 1
+        """,
+        (user_id, activity["start_date"])
+    )
+    previous_activity_row = cursor.fetchone()
+
+    GapBeforeThisActivity = None
+    ReturningAfterLongBreakForThisRun = False
+
+    if previous_activity_row:
+        previous_activity_date = datetime.fromisoformat(previous_activity_row["start_date"].replace("Z", "+00:00")).replace(tzinfo=None)
+        GapBeforeThisActivity = (current_activity_date - previous_activity_date).days
+        if GapBeforeThisActivity >= 14:
+            ReturningAfterLongBreakForThisRun = True
     
     minDistance = distance * 0.8 
     maxDistance = distance * 1.2
@@ -646,29 +684,75 @@ def read_root(user_id: int, activity_id: int):
     )
 
     recent_runs_raw = cursor.fetchall()
-    
 
 
     RecentRuns = [dict(row) for row in recent_runs_raw]
 
-    RecentPaces=[]
+    RecentPaces = []
 
-    for activity in RecentRuns:
-        if activity["pace_min_per_km"] != None:
-            RecentPaces.append(activity["pace_min_per_km"])
-        else:
-            continue
+    for run in RecentRuns:
+        if run["pace_min_per_km"] is not None:
+            RecentPaces.append(run["pace_min_per_km"])
+
+    if len(RecentPaces) < 2:
+        paceBaseline = None
+    else:
+        paceBaseline = round(sum(RecentPaces) / len(RecentPaces), 3)
+
+    if paceBaseline is not None and pace_min_per_km is not None:
+        paceDelta = round(pace_min_per_km - paceBaseline, 3)
+    else:
+        paceDelta = None
+    
+    json_recent_runs = json.dumps(RecentRuns, ensure_ascii=False)
+
+    if paceDelta is None:
+        paceVsBaseline = "unknown"
+    elif paceDelta < 0:
+        paceVsBaseline = "faster"
+    elif paceDelta > 0:
+        paceVsBaseline = "slower"
+    else:
+        paceVsBaseline = "similar"
 
 
-    return {
-        "distance": distance,
-        "maxDistance": maxDistance,
-        "minDistance": minDistance,
-        "RecentRuns ": RecentRuns,
-        "DistanceDict": RecentPaces,
+    if activity["trimp"] is not None and activity["moving_time"]:
+        trimp_per_minute = round(activity["trimp"] / (activity["moving_time"] / 60), 3)
+    else:
+        trimp_per_minute = None
 
 
-    }
+
+    client = OpenAI(
+        base_url=endpoint,
+        api_key=api_key
+    )
+
+    completion = client.chat.completions.create(
+        temperature=0,
+        model=deployment_name,
+        messages=[
+            {
+                "role": "system",
+                "content": AZURE_OPENAI_SYSTEM_PROMPT2,
+            },
+            {
+                "role": "user",
+                "content": f"Vyhodnocuj pouze tento jeden konkretni beh. Nic nepridavej a nic neodhaduj mimo poskytnute vstupy. Pokud nejaky udaj ve vstupech chybi, nereportuj vymyslena cisla ani zavery. Zamer se jen na: 1. jak narocny tento beh byl, 2. jestli byl vzhledem k tepu efektivni nebo ne, 3. jak zapada do podobnych behu, 4. co z nej plyne pro dalsi 1 az 2 dny. Pokud jsou k dispozici podobne behy, paceBaseline a paceDelta, pouzij je jako hlavni kontext pro srovnani. Interpretace paceDelta je zavazna: zaporne paceDelta znamena rychlejsi beh nez baseline, kladne paceDelta znamena pomalejsi beh nez baseline. Tuto interpretaci nesmis obratit. Pace vs baseline uz bylo backendove vyhodnoceno jako: {paceVsBaseline}. Pokud ReturningAfterLongBreakForThisRun = True, interpretuj tento beh jako navrat po delsi pauze a netvrd ho stejne jako beh v bezne kontinualni treninkove sekvenci. GapBeforeThisActivity ber jako zavazny kontext. Pro hodnoceni narocnosti musis zohlednit nejen tempo a tep, ale i TRIMP a trimp_per_minute, pokud jsou k dispozici. Pokud je estimated_vo2 dostupne, zohledni ho jako doplnkovy ukazatel aerobni narocnosti konkretniho behu. AWRS pouzij jen jako doplnkovy kontext celkove zateze, ne jako jediny zaver o tomto jednom behu. Nevypisuj surove nazvy metrik ani interni identifikatory jako paceDelta nebo trimp_per_minute do finalniho textu. Metriky interpretuj lidsky. Je zakazano tvrdit, naznacovat nebo doporucovat, ze muze jit o chybu, nespolehlivost nebo podezrelost mereni tepu. Tento typ zaveru neni povolen, protoze ve vstupech neni zadny explicitni dukaz o kvalite nebo chybe HR mereni. Samotna hodnota average_heartrate ani vztah mezi tepem, tempem a TRIMP neni dukaz chyby mereni. Toto omezeni plati bez vyjimky pro summary, risks i actions. Vstup 1 - activity JSON: {json_activity}. Vstup 2 - AWRS: {awrs}. Vstup 3 - recent_runs JSON: {json_recent_runs}. Vstup 4 - recent_paces: {RecentPaces}. Vstup 5 - paceBaseline: {paceBaseline}. Vstup 6 - paceDelta: {paceDelta}. Vstup 7 - pace_vs_baseline: {paceVsBaseline}. Vstup 8 - trimp_per_minute: {trimp_per_minute}. Vstup 9 - gap_before_this_activity: {GapBeforeThisActivity}. Vstup 10 - returning_after_long_break_for_this_run: {ReturningAfterLongBreakForThisRun}. Vrat pouze pozadovany JSON.",
+            },
+        ],
+        response_format={"type": "json_object"},
+    )
+
+    x = completion.choices[0].message
+    parsed_response = json.loads(x.content)
+
+
+
+
+    conn.close()
+
+    return {"response": parsed_response}
 
 
 
