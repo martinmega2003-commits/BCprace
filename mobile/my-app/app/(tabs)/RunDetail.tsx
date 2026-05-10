@@ -11,11 +11,13 @@ export default function RunDetail(){
     const [aiLoading, setAiLoading] = useState(false);
     const [showLoadMetrics, setShowLoadMetrics] = useState(false);
     const [aiTrainingInsight, setAiTrainingInsight] = useState<{
+      ai_badge?: string | null;
       headline?: string;
       summary?: string;
       effort?: string;
       risks?: string[];
       actions?: string[];
+      updated_at?: string | null;
     } | null>(null);
     
 const [Activity, setActivity] = useState<{
@@ -154,6 +156,19 @@ function formatPaceDelta(value: number | null | undefined) {
     return `${Math.abs(value).toFixed(2)} min`;
 }
 
+function formatStarBadge(aiBadge: string | null | undefined) {
+    if (!aiBadge || !aiBadge.endsWith('_star')) {
+        return null;
+    }
+
+    const starCount = Number(aiBadge.split('_')[0]);
+    if (!Number.isFinite(starCount) || starCount < 1 || starCount > 5) {
+        return null;
+    }
+
+    return `${'★'.repeat(starCount)}${'☆'.repeat(5 - starCount)}`;
+}
+
 function paceDeltaInfo(delta: number | null | undefined) {
     if (delta == null) {
         return {
@@ -274,6 +289,7 @@ async function loadAiTrainingInsight() {
 
         const insightJson = await rawInsight.json();
         setAiTrainingInsight(insightJson.response ?? null);
+        await loadActivity();
     } catch {
         setAiTrainingInsight(null);
     } finally {
@@ -293,6 +309,21 @@ async function loadActivity() {
 
         const activityData = ActivityJson.Activity
             if (!activityData) {return}
+
+        let parsedAiRisks: string[] = [];
+        let parsedAiActions: string[] = [];
+
+        try {
+          parsedAiRisks = activityData.ai_risks ? JSON.parse(activityData.ai_risks) : [];
+        } catch {
+          parsedAiRisks = [];
+        }
+
+        try {
+          parsedAiActions = activityData.ai_actions ? JSON.parse(activityData.ai_actions) : [];
+        } catch {
+          parsedAiActions = [];
+        }
 
         setActivity({
         id: activityData.id,
@@ -317,6 +348,20 @@ async function loadActivity() {
         paceDelta: ActivityJson.paceDelta
         })
 
+        if (activityData.ai_headline && activityData.ai_summary) {
+          setAiTrainingInsight({
+            ai_badge: activityData.ai_badge ?? null,
+            headline: activityData.ai_headline,
+            summary: activityData.ai_summary,
+            effort: activityData.ai_effort ?? undefined,
+            risks: parsedAiRisks,
+            actions: parsedAiActions,
+            updated_at: activityData.ai_updated_at ?? null,
+          });
+        } else {
+          setAiTrainingInsight(null);
+        }
+
     }
 }
 
@@ -334,6 +379,13 @@ async function loadActivity() {
             : null;
     const trimpMinuteLabel = trimpMinuteInfo(trimpPerMinute);
     const totalLoadLabel = totalLoadInfo(Activity?.trimp);
+    const aiTrainingStars = formatStarBadge(aiTrainingInsight?.ai_badge);
+    const formattedAiTrainingUpdatedAt = aiTrainingInsight?.updated_at
+      ? new Date(aiTrainingInsight.updated_at).toLocaleString('cs-CZ', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })
+      : null;
     return(
 <ScrollView
   contentContainerStyle={{ padding: 16, gap: 16, backgroundColor: '#f8fafc' }}
@@ -573,9 +625,40 @@ async function loadActivity() {
       gap: 14,
     }}
   >
-    <Text style={{ color: '#0f172a', fontSize: 18, fontWeight: '700' }}>
-      AI training insight
-    </Text>
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 12,
+      }}
+    >
+      <Text style={{ color: '#0f172a', fontSize: 18, fontWeight: '700' }}>
+        AI training insight
+      </Text>
+
+      {aiTrainingInsight ? (
+        <Pressable
+          onPress={async () => {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            loadAiTrainingInsight();
+          }}
+          style={({ pressed }) => ({
+            backgroundColor: '#fff7ed',
+            borderRadius: 999,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderWidth: 1,
+            borderColor: '#fed7aa',
+            opacity: pressed || aiLoading ? 0.75 : 1,
+          })}
+        >
+          <Text style={{ color: '#c2410c', fontSize: 12, fontWeight: '700' }}>
+            {aiLoading ? 'Reloading...' : 'Reload'}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
 
     {!aiTrainingInsight ? (
       <Pressable
@@ -603,9 +686,28 @@ async function loadActivity() {
           </Text>
         ) : null}
 
+        {aiTrainingStars ? (
+          <Text
+            style={{
+              color: '#f59e0b',
+              fontSize: 16,
+              fontWeight: '800',
+              letterSpacing: 1,
+            }}
+          >
+            {aiTrainingStars}
+          </Text>
+        ) : null}
+
         {aiTrainingInsight.summary ? (
           <Text style={{ color: '#475569', fontSize: 15, lineHeight: 22 }}>
             {aiTrainingInsight.summary}
+          </Text>
+        ) : null}
+
+        {formattedAiTrainingUpdatedAt ? (
+          <Text style={{ color: '#64748b', fontSize: 12 }}>
+            Aktualizovano: {formattedAiTrainingUpdatedAt}
           </Text>
         ) : null}
 

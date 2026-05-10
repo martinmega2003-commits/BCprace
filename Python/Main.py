@@ -29,6 +29,28 @@ AZURE_OPENAI_SYSTEM_PROMPT2 = os.getenv("AZURE_OPENAI_SYSTEM_PROMPT2")
 def get_db_path() -> Path:
     return Path(os.environ.get("SQLITE_DB_PATH", Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"))
 
+
+def badge_from_status(status: str | None) -> str:
+    status_map = {
+        "high": "1_star",
+        "elevated": "2_star",
+        "low": "3_star",
+        "ok": "5_star",
+    }
+    return status_map.get(status, "3_star")
+
+
+def badge_from_activity_insight(effort: str | None, risks: list[str]) -> str:
+    base_score_map = {
+        "easy": 5,
+        "steady": 4,
+        "hard": 3,
+    }
+    base_score = base_score_map.get(effort, 3)
+    penalty = 1 if risks else 0
+    score = max(1, base_score - penalty)
+    return f"{score}_star"
+
 @app.get("/weeklyvolume")
 def read_root(user_id: int):
     db_path = get_db_path()
@@ -589,6 +611,32 @@ def read_root(user_id: int):
     parsed_response = json.loads(x.content)
     parsed_response["status"] = StatusFromMetrics
 
+    ai_badge = badge_from_status(parsed_response.get("status"))
+    ai_headline = parsed_response.get("headline")
+    ai_summary = parsed_response.get("summary")
+    ai_risks = json.dumps(parsed_response.get("risks", []), ensure_ascii=False)
+    ai_actions = json.dumps(parsed_response.get("actions", []), ensure_ascii=False)
+    ai_updated_at = datetime.today().isoformat()
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET ai_status = ?, ai_badge = ?, ai_headline = ?, ai_summary = ?, ai_risks = ?, ai_actions = ?, ai_updated_at = ?
+        WHERE id = ?
+        """,
+        (
+            parsed_response.get("status"),
+            ai_badge,
+            ai_headline,
+            ai_summary,
+            ai_risks,
+            ai_actions,
+            ai_updated_at,
+            user_id,
+        ),
+    )
+    conn.commit()
+
 
     return {
         "response": parsed_response,
@@ -635,7 +683,14 @@ def read_root(user_id: int, activity_id: int):
     activity = dict(activity_row)
     json_activity = json.dumps(activity, ensure_ascii=False)
 
-    cursor.execute("SELECT awrs FROM users WHERE id = ?", (user_id,))
+    cursor.execute(
+        """
+        SELECT awrs, ai_status, ai_badge, ai_headline, ai_summary, ai_risks, ai_actions, ai_updated_at
+        FROM users
+        WHERE id = ?
+        """,
+        (user_id,),
+    )
     raw_awrs = cursor.fetchone()
 
     if not raw_awrs:
@@ -643,6 +698,17 @@ def read_root(user_id: int, activity_id: int):
         return {"message": "chybi awrs"}
 
     awrs = raw_awrs["awrs"]
+    dashboard_ai_context = {
+        "ai_status": raw_awrs["ai_status"],
+        "ai_badge": raw_awrs["ai_badge"],
+        "ai_headline": raw_awrs["ai_headline"],
+        "ai_summary": raw_awrs["ai_summary"],
+        "ai_risks": raw_awrs["ai_risks"],
+        "ai_actions": raw_awrs["ai_actions"],
+        "ai_updated_at": raw_awrs["ai_updated_at"],
+    }
+    json_dashboard_ai_context = json.dumps(dashboard_ai_context, ensure_ascii=False)
+
     distance = activity["distance"]
     pace_min_per_km = activity['pace_min_per_km']
 
@@ -738,7 +804,7 @@ def read_root(user_id: int, activity_id: int):
             },
             {
                 "role": "user",
-                "content": f"Vyhodnocuj pouze tento jeden konkretni beh. Nic nepridavej a nic neodhaduj mimo poskytnute vstupy. Pokud nejaky udaj ve vstupech chybi, nereportuj vymyslena cisla ani zavery. Zamer se jen na: 1. jak narocny tento beh byl, 2. jestli byl vzhledem k tepu efektivni nebo ne, 3. jak zapada do podobnych behu, 4. co z nej plyne pro dalsi 1 az 2 dny. Pokud jsou k dispozici podobne behy, paceBaseline a paceDelta, pouzij je jako hlavni kontext pro srovnani. Interpretace paceDelta je zavazna: zaporne paceDelta znamena rychlejsi beh nez baseline, kladne paceDelta znamena pomalejsi beh nez baseline. Tuto interpretaci nesmis obratit. Pace vs baseline uz bylo backendove vyhodnoceno jako: {paceVsBaseline}. Pokud ReturningAfterLongBreakForThisRun = True, interpretuj tento beh jako navrat po delsi pauze a netvrd ho stejne jako beh v bezne kontinualni treninkove sekvenci. GapBeforeThisActivity ber jako zavazny kontext. Pro hodnoceni narocnosti musis zohlednit nejen tempo a tep, ale i TRIMP a trimp_per_minute, pokud jsou k dispozici. Pokud je estimated_vo2 dostupne, zohledni ho jako doplnkovy ukazatel aerobni narocnosti konkretniho behu. AWRS pouzij jen jako doplnkovy kontext celkove zateze, ne jako jediny zaver o tomto jednom behu. Nevypisuj surove nazvy metrik ani interni identifikatory jako paceDelta nebo trimp_per_minute do finalniho textu. Metriky interpretuj lidsky. Je zakazano tvrdit, naznacovat nebo doporucovat, ze muze jit o chybu, nespolehlivost nebo podezrelost mereni tepu. Tento typ zaveru neni povolen, protoze ve vstupech neni zadny explicitni dukaz o kvalite nebo chybe HR mereni. Samotna hodnota average_heartrate ani vztah mezi tepem, tempem a TRIMP neni dukaz chyby mereni. Toto omezeni plati bez vyjimky pro summary, risks i actions. Vstup 1 - activity JSON: {json_activity}. Vstup 2 - AWRS: {awrs}. Vstup 3 - recent_runs JSON: {json_recent_runs}. Vstup 4 - recent_paces: {RecentPaces}. Vstup 5 - paceBaseline: {paceBaseline}. Vstup 6 - paceDelta: {paceDelta}. Vstup 7 - pace_vs_baseline: {paceVsBaseline}. Vstup 8 - trimp_per_minute: {trimp_per_minute}. Vstup 9 - gap_before_this_activity: {GapBeforeThisActivity}. Vstup 10 - returning_after_long_break_for_this_run: {ReturningAfterLongBreakForThisRun}. Vrat pouze pozadovany JSON.",
+                "content": f"Vyhodnocuj pouze tento jeden konkretni beh. Nic nepridavej a nic neodhaduj mimo poskytnute vstupy. Pokud nejaky udaj ve vstupech chybi, nereportuj vymyslena cisla ani zavery. Zamer se jen na: 1. jak narocny tento beh byl, 2. jestli byl vzhledem k tepu efektivni nebo ne, 3. jak zapada do podobnych behu, 4. co z nej plyne pro dalsi 1 az 2 dny. Pokud jsou k dispozici podobne behy, paceBaseline a paceDelta, pouzij je jako hlavni kontext pro srovnani. Interpretace paceDelta je zavazna: zaporne paceDelta znamena rychlejsi beh nez baseline, kladne paceDelta znamena pomalejsi beh nez baseline. Tuto interpretaci nesmis obratit. Pace vs baseline uz bylo backendove vyhodnoceno jako: {paceVsBaseline}. Pokud ReturningAfterLongBreakForThisRun = True, interpretuj tento beh jako navrat po delsi pauze a netvrd ho stejne jako beh v bezne kontinualni treninkove sekvenci. GapBeforeThisActivity ber jako zavazny kontext. Pro hodnoceni narocnosti musis zohlednit nejen tempo a tep, ale i TRIMP a trimp_per_minute, pokud jsou k dispozici. Pokud je estimated_vo2 dostupne, zohledni ho jako doplnkovy ukazatel aerobni narocnosti konkretniho behu. AWRS pouzij jen jako doplnkovy kontext celkove zateze, ne jako jediny zaver o tomto jednom behu. Pokud je dostupny posledni dashboard AI insight, ber ho pouze jako doplnkovy kontext a pokud je v rozporu s aktualnimi metrikami tohoto behu, rid se aktualnimi metrikami. Nevypisuj surove nazvy metrik ani interni identifikatory jako paceDelta nebo trimp_per_minute do finalniho textu. Metriky interpretuj lidsky. Je zakazano tvrdit, naznacovat nebo doporucovat, ze muze jit o chybu, nespolehlivost nebo podezrelost mereni tepu. Tento typ zaveru neni povolen, protoze ve vstupech neni zadny explicitni dukaz o kvalite nebo chybe HR mereni. Samotna hodnota average_heartrate ani vztah mezi tepem, tempem a TRIMP neni dukaz chyby mereni. Toto omezeni plati bez vyjimky pro summary, risks i actions. Vstup 1 - activity JSON: {json_activity}. Vstup 2 - AWRS: {awrs}. Vstup 3 - recent_runs JSON: {json_recent_runs}. Vstup 4 - recent_paces: {RecentPaces}. Vstup 5 - paceBaseline: {paceBaseline}. Vstup 6 - paceDelta: {paceDelta}. Vstup 7 - pace_vs_baseline: {paceVsBaseline}. Vstup 8 - trimp_per_minute: {trimp_per_minute}. Vstup 9 - gap_before_this_activity: {GapBeforeThisActivity}. Vstup 10 - returning_after_long_break_for_this_run: {ReturningAfterLongBreakForThisRun}. Vstup 11 - latest_dashboard_ai_context JSON: {json_dashboard_ai_context}. Vrat pouze pozadovany JSON.",
             },
         ],
         response_format={"type": "json_object"},
@@ -747,8 +813,34 @@ def read_root(user_id: int, activity_id: int):
     x = completion.choices[0].message
     parsed_response = json.loads(x.content)
 
+    parsed_risks = parsed_response.get("risks", [])
+    ai_badge = badge_from_activity_insight(parsed_response.get("effort"), parsed_risks)
+    ai_headline = parsed_response.get("headline")
+    ai_summary = parsed_response.get("summary")
+    ai_effort = parsed_response.get("effort")
+    ai_risks = json.dumps(parsed_risks, ensure_ascii=False)
+    ai_actions = json.dumps(parsed_response.get("actions", []), ensure_ascii=False)
+    ai_updated_at = datetime.today().isoformat()
 
-
+    cursor.execute(
+        """
+        UPDATE activities
+        SET ai_badge = ?, ai_headline = ?, ai_summary = ?, ai_effort = ?, ai_risks = ?, ai_actions = ?, ai_updated_at = ?
+        WHERE id = ? AND user_id = ?
+        """,
+        (
+            ai_badge,
+            ai_headline,
+            ai_summary,
+            ai_effort,
+            ai_risks,
+            ai_actions,
+            ai_updated_at,
+            activity_id,
+            user_id,
+        ),
+    )
+    conn.commit()
 
     conn.close()
 

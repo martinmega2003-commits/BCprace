@@ -33,7 +33,14 @@ db.exec(`
     hrr REAL,
     awrs REAL,
     estimated_vo2max REAL,
-    estimated_vo2max_updated_at TEXT
+    estimated_vo2max_updated_at TEXT,
+    ai_status TEXT,
+    ai_badge TEXT,
+    ai_headline TEXT,
+    ai_summary TEXT,
+    ai_risks TEXT,
+    ai_actions TEXT,
+    ai_updated_at TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)
     `);
 
@@ -67,7 +74,14 @@ db.exec(`
     trimp REAL,
     Avg_speed REAL,
     Elevation INTEGER,
-    estimated_vo2 REAL
+    estimated_vo2 REAL,
+    ai_badge TEXT,
+    ai_headline TEXT,
+    ai_summary TEXT,
+    ai_effort TEXT,
+    ai_risks TEXT,
+    ai_actions TEXT,
+    ai_updated_at TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
     )
@@ -105,6 +119,118 @@ try {
   `);
 } catch (error) {
   console.log("estimated_vo2max_updated_at existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE users ADD COLUMN ai_status TEXT
+  `);
+} catch (error) {
+  console.log("users.ai_status existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE users ADD COLUMN ai_badge TEXT
+  `);
+} catch (error) {
+  console.log("users.ai_badge existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE users ADD COLUMN ai_headline TEXT
+  `);
+} catch (error) {
+  console.log("users.ai_headline existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE users ADD COLUMN ai_summary TEXT
+  `);
+} catch (error) {
+  console.log("users.ai_summary existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE users ADD COLUMN ai_risks TEXT
+  `);
+} catch (error) {
+  console.log("users.ai_risks existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE users ADD COLUMN ai_actions TEXT
+  `);
+} catch (error) {
+  console.log("users.ai_actions existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE users ADD COLUMN ai_updated_at TEXT
+  `);
+} catch (error) {
+  console.log("users.ai_updated_at existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE activities ADD COLUMN ai_badge TEXT
+  `);
+} catch (error) {
+  console.log("activities.ai_badge existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE activities ADD COLUMN ai_headline TEXT
+  `);
+} catch (error) {
+  console.log("activities.ai_headline existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE activities ADD COLUMN ai_summary TEXT
+  `);
+} catch (error) {
+  console.log("activities.ai_summary existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE activities ADD COLUMN ai_effort TEXT
+  `);
+} catch (error) {
+  console.log("activities.ai_effort existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE activities ADD COLUMN ai_risks TEXT
+  `);
+} catch (error) {
+  console.log("activities.ai_risks existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE activities ADD COLUMN ai_actions TEXT
+  `);
+} catch (error) {
+  console.log("activities.ai_actions existuje");
+}
+
+try {
+  db.exec(`
+    ALTER TABLE activities ADD COLUMN ai_updated_at TEXT
+  `);
+} catch (error) {
+  console.log("activities.ai_updated_at existuje");
 }
 
 

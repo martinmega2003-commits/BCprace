@@ -22,22 +22,27 @@ export default function RunItem({ name, distance, date, onPress }: RunItemProps)
                 await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 onPress();
             }}
-            style={{
-                backgroundColor: '#f3f4f6',
+            style={({ pressed }) => ({
+                width: '100%',
+                alignSelf: 'stretch',
+                backgroundColor: '#ffffff',
                 borderWidth: 1,
-                borderColor: '#e5e7eb',
-                borderRadius: 10,
-                paddingHorizontal: 14,
-                paddingVertical: 12,
-                marginBottom: 10,
-            }}
+                borderColor: '#e2e8f0',
+                borderRadius: 18,
+                paddingHorizontal: 18,
+                paddingVertical: 16,
+                marginBottom: 12,
+                opacity: pressed ? 0.82 : 1,
+                minHeight: 76,
+                justifyContent: 'center',
+            })}
         >
-            <Text style={{ color: '#111827', fontWeight: '600' }}>{name}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 }}>
-                <Text style={{ color: '#64748b', fontSize: 13, fontWeight: '600' }}>
+            <Text style={{ color: '#0f172a', fontSize: 15, fontWeight: '700', lineHeight: 20 }}>{name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+                <Text style={{ color: '#fc4c02', fontSize: 13, fontWeight: '800' }}>
                     {(distance / 1000).toFixed(2)} km
                 </Text>
-                <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '500' }}>
+                <Text style={{ color: '#64748b', fontSize: 12, fontWeight: '600' }}>
                     {formattedDate}
                 </Text>
             </View>
