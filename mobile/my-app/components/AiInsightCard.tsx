@@ -30,24 +30,24 @@ export default function AiInsightCard({
   const statusMeta =
     status === 'high'
       ? {
-          label: 'High Risk',
+          label: 'Velké riziko',
           backgroundColor: '#fee2e2',
           color: '#b91c1c',
         }
       : status === 'elevated'
         ? {
-            label: 'Elevated',
+            label: 'Zvýšená zátěž',
             backgroundColor: '#ffedd5',
             color: '#c2410c',
           }
         : status === 'ok'
           ? {
-              label: 'Stable',
+              label: 'Stabilní zátěž',
               backgroundColor: '#dcfce7',
               color: '#166534',
             }
           : {
-              label: 'Low Load',
+              label: 'Nízká zátěž',
               backgroundColor: '#eff6ff',
               color: '#1d4ed8',
             };
@@ -125,7 +125,7 @@ export default function AiInsightCard({
                   fontWeight: '700',
                 }}
               >
-                {reloading ? 'Reloading...' : 'Reload'}
+                {reloading ? 'Obnovuji...' : 'Obnovit'}
               </Text>
             </Pressable>
           ) : null}
@@ -208,7 +208,7 @@ export default function AiInsightCard({
           marginBottom: 8,
         }}
       >
-        RISKS
+        Rizika
       </Text>
 
       {risks.map((risk) => (
@@ -235,7 +235,7 @@ export default function AiInsightCard({
           marginBottom: 8,
         }}
       >
-        NEXT STEPS
+        Další kroky
       </Text>
 
       {actions.map((action) => (

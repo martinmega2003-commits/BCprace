@@ -42,9 +42,9 @@ def badge_from_status(status: str | None) -> str:
 
 def badge_from_activity_insight(effort: str | None, risks: list[str]) -> str:
     base_score_map = {
-        "easy": 5,
-        "steady": 4,
-        "hard": 3,
+        "lehké": 5,
+        "střední": 4,
+        "těžké": 3,
     }
     base_score = base_score_map.get(effort, 3)
     penalty = 1 if risks else 0
@@ -395,7 +395,7 @@ def read_root(user_id: int):
 
 
 
-@app.get("/awrs")
+@app.get("/ACWR")
 def read_root(user_id: int):
     db_path = get_db_path()
     conn = sqlite3.connect(db_path)
@@ -431,12 +431,12 @@ def read_root(user_id: int):
         return {"message": "chybi chronicTrimp"}
 
     chronicLoad = sum(chronicTrimp) / 4
-    awrs = round(acuteLoad / chronicLoad, 3)
+    ACWR = round(acuteLoad / chronicLoad, 3)
 
 
     cursor.execute(
     "UPDATE users SET awrs = ? WHERE id = ?",
-    (awrs, user_id))
+    (ACWR, user_id))
     
     conn.commit()
     conn.close()
@@ -445,7 +445,7 @@ def read_root(user_id: int):
 
 
     return {
-        "awrs": awrs,
+        "ACWR": ACWR,
         "updated_rows": cursor.rowcount,
     }
 
@@ -512,16 +512,16 @@ def read_root(user_id: int):
 
     JsonActivity = json.dumps(activities, ensure_ascii=False)
 
-    cursor.execute("SELECT awrs, estimated_vo2max FROM users WHERE id = ?", (user_id,))
+    cursor.execute("SELECT awrs AS ACWR, estimated_vo2max FROM users WHERE id = ?", (user_id,))
 
     RawUserData = cursor.fetchone()
 
-    awrs = RawUserData["awrs"]
+    ACWR = RawUserData["ACWR"]
     
     estimated_vo2max = RawUserData["estimated_vo2max"]
 
     if not RawUserData:
-        return {"message": "chybi awrs"}
+        return {"message": "chybi ACWR"}
 
     cursor.execute(
         "SELECT start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 2",
@@ -539,7 +539,7 @@ def read_root(user_id: int):
 
 
     NotTrainingForLong = DaysFromLastActivity >= 14
-    UnderTrainingRisk = awrs < 0.8
+    UnderTrainingRisk = ACWR < 0.8
 
     GapBetweenLastTwoActivities = None
     ReturningAfterLongBreak = False
@@ -572,10 +572,10 @@ def read_root(user_id: int):
     if ReturningAfterLongBreak:
         StatusFromMetrics = "elevated"
 
-    if awrs > 1.5 and not ReturningAfterLongBreak:
+    if ACWR > 1.5 and not ReturningAfterLongBreak:
         StatusFromMetrics = "elevated"
 
-    if awrs > 2.0 and not ReturningAfterLongBreak:
+    if ACWR > 2.0 and not ReturningAfterLongBreak:
         StatusFromMetrics = "high"
 
 
@@ -597,7 +597,7 @@ def read_root(user_id: int):
             },
             {
                 "role": "user",
-                "content": f"Pracuj pouze s těmito vstupy. Nic nepřidávej a nic neodhaduj. Pokud nějaký údaj není přímo ve vstupu, nesmí se objevit ve výstupu. Nepoužívej časové formulace jako 'v posledním týdnu', 'před týdnem' nebo 'nedávno', pokud je nelze přesně odvodit ze vstupu. Vysoké AWRS samo o sobě neznamená potvrzené přetížení ani zákaz dalšího běhu. Pokud nejsou přítomné další negativní signály, interpretuj vysoké AWRS spíše jako zvýšenou opatrnost a potřebu rozumné regulace další zátěže, ne jako akutní problém. Pokud backend_risks obsahuje alespoň jednu položku, nesmíš ve summary ani v risks tvrdit, že žádná rizika nejsou přítomná. Backend_risks ber jako závazná fakta. Pokud je estimated_vo2max dostupne, zohledni ho ve summary a actions jako orientacni ukazatel aerobni vykonnosti. Nestaci jen uvest cislo. Strucne vysvetli, co dana hodnota znamena pro bezce v praktickem kontextu vytrvalosti nebo aerobni vykonnosti. Nepopisuj ji jako laboratorni mereni, ale jako odhad. Vstup 1 - recent_activities JSON: {JsonActivity}. Vstup 2 - AWRS: {awrs}. Vstup 3 - days_since_last_activity: {DaysFromLastActivity}. Vstup 4 - not_training_for_long: {NotTrainingForLong}. Vstup 5 - undertraining_risk: {UnderTrainingRisk}. Vstup 6 - gap_between_last_two_activities: {GapBetweenLastTwoActivities}. Vstup 7 - returning_after_long_break: {ReturningAfterLongBreak}. Vstup 8 - status_from_metrics: {StatusFromMetrics}. Vstup 9 - backend_risks: {BackendRisks}. Vstup 10 - estimated_vo2max: {estimated_vo2max}. Na základě pouze těchto vstupů vrať požadovaný JSON.",
+                "content": f"Pracuj pouze s těmito vstupy. Nic nepřidávej a nic neodhaduj. Pokud nějaký údaj není přímo ve vstupu, nesmí se objevit ve výstupu. Nepoužívej časové formulace jako 'v posledním týdnu', 'před týdnem' nebo 'nedávno', pokud je nelze přesně odvodit ze vstupu. Vysoké ACWR samo o sobě neznamená potvrzené přetížení ani zákaz dalšího běhu. Pokud nejsou přítomné další negativní signály, interpretuj vysoké ACWR spíše jako zvýšenou opatrnost a potřebu rozumné regulace další zátěže, ne jako akutní problém. Pokud backend_risks obsahuje alespoň jednu položku, nesmíš ve summary ani v risks tvrdit, že žádná rizika nejsou přítomná. Backend_risks ber jako závazná fakta. Pokud je estimated_vo2max dostupne, zohledni ho ve summary a actions jako orientacni ukazatel aerobni vykonnosti. Nestaci jen uvest cislo. Strucne vysvetli, co dana hodnota znamena pro bezce v praktickem kontextu vytrvalosti nebo aerobni vykonnosti. Nepopisuj ji jako laboratorni mereni, ale jako odhad. Vstup 1 - recent_activities JSON: {JsonActivity}. Vstup 2 - ACWR: {ACWR}. Vstup 3 - days_since_last_activity: {DaysFromLastActivity}. Vstup 4 - not_training_for_long: {NotTrainingForLong}. Vstup 5 - undertraining_risk: {UnderTrainingRisk}. Vstup 6 - gap_between_last_two_activities: {GapBetweenLastTwoActivities}. Vstup 7 - returning_after_long_break: {ReturningAfterLongBreak}. Vstup 8 - status_from_metrics: {StatusFromMetrics}. Vstup 9 - backend_risks: {BackendRisks}. Vstup 10 - estimated_vo2max: {estimated_vo2max}. Na základě pouze těchto vstupů vrať požadovaný JSON.",
             },
         ],
 
@@ -641,7 +641,7 @@ def read_root(user_id: int):
     return {
         "response": parsed_response,
         "debug": {
-            "awrs": awrs,
+            "ACWR": ACWR,
             "DaysFromLastActivity": DaysFromLastActivity,
             "GapBetweenLastTwoActivities": GapBetweenLastTwoActivities,
             "ReturningAfterLongBreak": ReturningAfterLongBreak,
@@ -685,27 +685,27 @@ def read_root(user_id: int, activity_id: int):
 
     cursor.execute(
         """
-        SELECT awrs, ai_status, ai_badge, ai_headline, ai_summary, ai_risks, ai_actions, ai_updated_at
+        SELECT awrs AS ACWR, ai_status, ai_badge, ai_headline, ai_summary, ai_risks, ai_actions, ai_updated_at
         FROM users
         WHERE id = ?
         """,
         (user_id,),
     )
-    raw_awrs = cursor.fetchone()
+    raw_ACWR = cursor.fetchone()
 
-    if not raw_awrs:
+    if not raw_ACWR:
         conn.close()
-        return {"message": "chybi awrs"}
+        return {"message": "chybi ACWR"}
 
-    awrs = raw_awrs["awrs"]
+    ACWR = raw_ACWR["ACWR"]
     dashboard_ai_context = {
-        "ai_status": raw_awrs["ai_status"],
-        "ai_badge": raw_awrs["ai_badge"],
-        "ai_headline": raw_awrs["ai_headline"],
-        "ai_summary": raw_awrs["ai_summary"],
-        "ai_risks": raw_awrs["ai_risks"],
-        "ai_actions": raw_awrs["ai_actions"],
-        "ai_updated_at": raw_awrs["ai_updated_at"],
+        "ai_status": raw_ACWR["ai_status"],
+        "ai_badge": raw_ACWR["ai_badge"],
+        "ai_headline": raw_ACWR["ai_headline"],
+        "ai_summary": raw_ACWR["ai_summary"],
+        "ai_risks": raw_ACWR["ai_risks"],
+        "ai_actions": raw_ACWR["ai_actions"],
+        "ai_updated_at": raw_ACWR["ai_updated_at"],
     }
     json_dashboard_ai_context = json.dumps(dashboard_ai_context, ensure_ascii=False)
 
@@ -804,7 +804,7 @@ def read_root(user_id: int, activity_id: int):
             },
             {
                 "role": "user",
-                "content": f"Vyhodnocuj pouze tento jeden konkretni beh. Nic nepridavej a nic neodhaduj mimo poskytnute vstupy. Pokud nejaky udaj ve vstupech chybi, nereportuj vymyslena cisla ani zavery. Zamer se jen na: 1. jak narocny tento beh byl, 2. jestli byl vzhledem k tepu efektivni nebo ne, 3. jak zapada do podobnych behu, 4. co z nej plyne pro dalsi 1 az 2 dny. Pokud jsou k dispozici podobne behy, paceBaseline a paceDelta, pouzij je jako hlavni kontext pro srovnani. Interpretace paceDelta je zavazna: zaporne paceDelta znamena rychlejsi beh nez baseline, kladne paceDelta znamena pomalejsi beh nez baseline. Tuto interpretaci nesmis obratit. Pace vs baseline uz bylo backendove vyhodnoceno jako: {paceVsBaseline}. Pokud ReturningAfterLongBreakForThisRun = True, interpretuj tento beh jako navrat po delsi pauze a netvrd ho stejne jako beh v bezne kontinualni treninkove sekvenci. GapBeforeThisActivity ber jako zavazny kontext. Pro hodnoceni narocnosti musis zohlednit nejen tempo a tep, ale i TRIMP a trimp_per_minute, pokud jsou k dispozici. Pokud je estimated_vo2 dostupne, zohledni ho jako doplnkovy ukazatel aerobni narocnosti konkretniho behu. AWRS pouzij jen jako doplnkovy kontext celkove zateze, ne jako jediny zaver o tomto jednom behu. Pokud je dostupny posledni dashboard AI insight, ber ho pouze jako doplnkovy kontext a pokud je v rozporu s aktualnimi metrikami tohoto behu, rid se aktualnimi metrikami. Nevypisuj surove nazvy metrik ani interni identifikatory jako paceDelta nebo trimp_per_minute do finalniho textu. Metriky interpretuj lidsky. Je zakazano tvrdit, naznacovat nebo doporucovat, ze muze jit o chybu, nespolehlivost nebo podezrelost mereni tepu. Tento typ zaveru neni povolen, protoze ve vstupech neni zadny explicitni dukaz o kvalite nebo chybe HR mereni. Samotna hodnota average_heartrate ani vztah mezi tepem, tempem a TRIMP neni dukaz chyby mereni. Toto omezeni plati bez vyjimky pro summary, risks i actions. Vstup 1 - activity JSON: {json_activity}. Vstup 2 - AWRS: {awrs}. Vstup 3 - recent_runs JSON: {json_recent_runs}. Vstup 4 - recent_paces: {RecentPaces}. Vstup 5 - paceBaseline: {paceBaseline}. Vstup 6 - paceDelta: {paceDelta}. Vstup 7 - pace_vs_baseline: {paceVsBaseline}. Vstup 8 - trimp_per_minute: {trimp_per_minute}. Vstup 9 - gap_before_this_activity: {GapBeforeThisActivity}. Vstup 10 - returning_after_long_break_for_this_run: {ReturningAfterLongBreakForThisRun}. Vstup 11 - latest_dashboard_ai_context JSON: {json_dashboard_ai_context}. Vrat pouze pozadovany JSON.",
+                "content": f"Vyhodnocuj pouze tento jeden konkretni beh. Nic nepridavej a nic neodhaduj mimo poskytnute vstupy. Pokud nejaky udaj ve vstupech chybi, nereportuj vymyslena cisla ani zavery. Zamer se jen na: 1. jak narocny tento beh byl, 2. jestli byl vzhledem k tepu efektivni nebo ne, 3. jak zapada do podobnych behu, 4. co z nej plyne pro dalsi 1 az 2 dny. Pokud jsou k dispozici podobne behy, paceBaseline a paceDelta, pouzij je jako hlavni kontext pro srovnani. Interpretace paceDelta je zavazna: zaporne paceDelta znamena rychlejsi beh nez baseline, kladne paceDelta znamena pomalejsi beh nez baseline. Tuto interpretaci nesmis obratit. Pace vs baseline uz bylo backendove vyhodnoceno jako: {paceVsBaseline}. Pokud ReturningAfterLongBreakForThisRun = True, interpretuj tento beh jako navrat po delsi pauze a netvrd ho stejne jako beh v bezne kontinualni treninkove sekvenci. GapBeforeThisActivity ber jako zavazny kontext. Pro hodnoceni narocnosti musis zohlednit nejen tempo a tep, ale i TRIMP a trimp_per_minute, pokud jsou k dispozici. Pokud je estimated_vo2 dostupne, zohledni ho jako doplnkovy ukazatel aerobni narocnosti konkretniho behu. ACWR pouzij jen jako doplnkovy kontext celkove zateze, ne jako jediny zaver o tomto jednom behu. Pokud je dostupny posledni dashboard AI insight, ber ho pouze jako doplnkovy kontext a pokud je v rozporu s aktualnimi metrikami tohoto behu, rid se aktualnimi metrikami. Nevypisuj surove nazvy metrik ani interni identifikatory jako paceDelta nebo trimp_per_minute do finalniho textu. Metriky interpretuj lidsky. Je zakazano tvrdit, naznacovat nebo doporucovat, ze muze jit o chybu, nespolehlivost nebo podezrelost mereni tepu. Tento typ zaveru neni povolen, protoze ve vstupech neni zadny explicitni dukaz o kvalite nebo chybe HR mereni. Samotna hodnota average_heartrate ani vztah mezi tepem, tempem a TRIMP neni dukaz chyby mereni. Toto omezeni plati bez vyjimky pro summary, risks i actions. Vstup 1 - activity JSON: {json_activity}. Vstup 2 - ACWR: {ACWR}. Vstup 3 - recent_runs JSON: {json_recent_runs}. Vstup 4 - recent_paces: {RecentPaces}. Vstup 5 - paceBaseline: {paceBaseline}. Vstup 6 - paceDelta: {paceDelta}. Vstup 7 - pace_vs_baseline: {paceVsBaseline}. Vstup 8 - trimp_per_minute: {trimp_per_minute}. Vstup 9 - gap_before_this_activity: {GapBeforeThisActivity}. Vstup 10 - returning_after_long_break_for_this_run: {ReturningAfterLongBreakForThisRun}. Vstup 11 - latest_dashboard_ai_context JSON: {json_dashboard_ai_context}. Vrat pouze pozadovany JSON.",
             },
         ],
         response_format={"type": "json_object"},

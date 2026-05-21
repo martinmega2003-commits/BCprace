@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { Alert } from 'react-native';
 import WeeklyVolumeStrip from '@/components/WeeklyVolumeStrip';
 import WeeklyVolumeChartCard from '@/components/WeeklyVolumeChartCard';
-import AwrsWidget from '@/components/AwrsWidget';
+import ACWRWidget from '@/components/AwrsWidget';
 import { useStore } from 'expo-router/build/global-state/router-store';
 import AiInsightCard from '@/components/AiInsightCard';
 import Vo2MaxWidget from '@/components/Vo2MaxWidget';
@@ -96,7 +96,7 @@ export default function BasicButtonExample() {
       height_cm: number | null;
       birth_date: string | null;
       rest_heartrate: number | null;
-      awrs: number,
+      ACWR: number,
    } | null>(null);
 
 
@@ -265,7 +265,7 @@ export default function BasicButtonExample() {
             height_cm: profileJson.height_cm,
             birth_date: profileJson.birth_date,
             rest_heartrate: profileJson.rest_heartrate,
-            awrs: profileJson.awrs,
+            ACWR: profileJson.ACWR,
          });
 
          if (profileJson.ai_headline && profileJson.ai_summary) {
@@ -665,7 +665,7 @@ export default function BasicButtonExample() {
                sourceWindowDays={vo2maxData?.source_window_days ?? null}
                fresh={vo2maxData?.fresh ?? false}
             />
-             <AwrsWidget awrs={profile?.awrs ?? null} />
+             <ACWRWidget ACWR={profile?.ACWR ?? null} />
           </View>
 
             <WeeklyVolumeChartCard
@@ -690,42 +690,42 @@ export default function BasicButtonExample() {
 
                   selectedDay={dayClicked}>
             </WeeklyVolumeStrip>
-            <View
-               style={{
-                  width: '92%',
-                  marginTop: 18,
-                  backgroundColor: '#ffffff',
-                  borderRadius: 24,
-                  paddingTop: 15,
-                  paddingBottom: 15,
-                  paddingRight: 15,
-                  paddingLeft: 15,
-                  borderWidth: 1,
-                  borderColor: '#e5e7eb',
-                  gap: 14,
-               }}
-            >
-               <Pressable
-                  onPress={async () => {
-                     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                     setShowDashboardAiInsight((prev) => !prev);
-                  }}
+            {AiAnswer ? (
+               <View
                   style={{
-                     flexDirection: 'row',
-                     alignItems: 'center',
-                     justifyContent: 'space-between',
+                     width: '92%',
+                     marginTop: 18,
+                     backgroundColor: '#ffffff',
+                     borderRadius: 24,
+                     paddingTop: 15,
+                     paddingBottom: 15,
+                     paddingRight: 15,
+                     paddingLeft: 15,
+                     borderWidth: 1,
+                     borderColor: '#e5e7eb',
+                     gap: 14,
                   }}
                >
-                  <Text style={{ color: '#0f172a', fontSize: 18, fontWeight: '700' }}>
-                     AI insight
-                  </Text>
-                  <Text style={{ color: '#64748b', fontSize: 18, fontWeight: '700' }}>
-                     {showDashboardAiInsight ? '−' : '+'}
-                  </Text>
-               </Pressable>
+                  <Pressable
+                     onPress={async () => {
+                        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setShowDashboardAiInsight((prev) => !prev);
+                     }}
+                     style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                     }}
+                  >
+                     <Text style={{ color: '#0f172a', fontSize: 18, fontWeight: '700' }}>
+                        AI insight
+                     </Text>
+                     <Text style={{ color: '#64748b', fontSize: 18, fontWeight: '700' }}>
+                        {showDashboardAiInsight ? '−' : '+'}
+                     </Text>
+                  </Pressable>
 
-               {showDashboardAiInsight ? (
-                  AiAnswer ? (
+                  {showDashboardAiInsight ? (
                      <AiInsightCard
                         {...AiAnswer}
                         embedded
@@ -736,33 +736,35 @@ export default function BasicButtonExample() {
                            await Aicall();
                         }}
                      />
-                  ) : (
-                     <Pressable
-                        onPress={async () => {
-                           await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                           Aicall();
-                        }}
-                        style={({ pressed }) => ({
-                          backgroundColor: '#111827',
-                          borderRadius: 20,
-                          paddingVertical: 16,
-                          alignItems: 'center',
-                          opacity: pressed ? 0.8 : 1,
-                       })}
-                    >
-                       <Text
-                          style={{
-                             color: '#ffffff',
-                             fontSize: 15,
-                             fontWeight: '700',
-                          }}
-                       >
-                          {aiLoading ? 'Generating...' : 'Generate AI Insight'}
-                       </Text>
-                    </Pressable>
-                  )
-               ) : null}
-            </View>
+                  ) : null}
+               </View>
+            ) : (
+               <Pressable
+                  onPress={async () => {
+                     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                     Aicall();
+                  }}
+                  style={({ pressed }) => ({
+                    width: '92%',
+                    marginTop: 18,
+                    backgroundColor: '#111827',
+                    borderRadius: 20,
+                    paddingVertical: 16,
+                    alignItems: 'center',
+                    opacity: pressed ? 0.8 : 1,
+                 })}
+              >
+                 <Text
+                    style={{
+                       color: '#ffffff',
+                       fontSize: 15,
+                       fontWeight: '700',
+                    }}
+                 >
+                    {aiLoading ? 'Generuji...' : 'Vygenerovat AI Insight'}
+                 </Text>
+              </Pressable>
+            )}
 
             <View
                style={{

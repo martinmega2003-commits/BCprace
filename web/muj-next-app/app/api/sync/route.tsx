@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
     await fetch(`${pythonApiUrl}/IntesityCalcul?user_id=${userRow.user_id}`)
     await fetch(`${pythonApiUrl}/avg?user_id=${userRow.user_id}`)
     await fetch(`${pythonApiUrl}/Trimp?user_id=${userRow.user_id}`)
-    await fetch(`${pythonApiUrl}/awrs?user_id=${userRow.user_id}`)
+    await fetch(`${pythonApiUrl}/ACWR?user_id=${userRow.user_id}`)
 
 
 return NextResponse.json({ ok: true, message: "sync probehl" });

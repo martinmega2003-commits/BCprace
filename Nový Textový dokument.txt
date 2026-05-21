@@ -1,3 +1,0 @@
-tep, kadence, hr 
-Kadence vypočet efektivity
-predikce dobreho behu

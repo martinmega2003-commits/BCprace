@@ -1,11 +1,11 @@
 import { Text, View } from 'react-native';
 
-type AwrsWidgetProps = {
-  awrs: number | null;
+type ACWRWidgetProps = {
+  ACWR: number | null;
 };
 
-function getAwrsInfo(awrs: number | null) {
-  if (awrs == null) {
+function getACWRInfo(ACWR: number | null) {
+  if (ACWR == null) {
     return {
       label: 'Bez dat',
       value: '-',
@@ -16,10 +16,10 @@ function getAwrsInfo(awrs: number | null) {
     };
   }
 
-  if (awrs < 0.8) {
+  if (ACWR < 0.8) {
     return {
       label: 'Malo treninku',
-      value: awrs.toFixed(2),
+      value: ACWR.toFixed(2),
       color: '#b45309',
       backgroundColor: '#fffbeb',
       borderColor: '#fde68a',
@@ -27,10 +27,10 @@ function getAwrsInfo(awrs: number | null) {
     };
   }
 
-  if (awrs <= 1.3) {
+  if (ACWR <= 1.3) {
     return {
       label: 'Idealni zatizeni',
-      value: awrs.toFixed(2),
+      value: ACWR.toFixed(2),
       color: '#15803d',
       backgroundColor: '#f0fdf4',
       borderColor: '#bbf7d0',
@@ -38,10 +38,10 @@ function getAwrsInfo(awrs: number | null) {
     };
   }
 
-  if (awrs <= 1.5) {
+  if (ACWR <= 1.5) {
     return {
       label: 'Lehce zvysene',
-      value: awrs.toFixed(2),
+      value: ACWR.toFixed(2),
       color: '#c2410c',
       backgroundColor: '#fff7ed',
       borderColor: '#fed7aa',
@@ -51,7 +51,7 @@ function getAwrsInfo(awrs: number | null) {
 
   return {
     label: 'Nebezpeci pretizeni',
-    value: awrs.toFixed(2),
+    value: ACWR.toFixed(2),
     color: '#b91c1c',
     backgroundColor: '#fef2f2',
     borderColor: '#fecaca',
@@ -59,8 +59,8 @@ function getAwrsInfo(awrs: number | null) {
   };
 }
 
-export default function AwrsWidget({ awrs }: AwrsWidgetProps) {
-  const info = getAwrsInfo(awrs);
+export default function ACWRWidget({ ACWR }: ACWRWidgetProps) {
+  const info = getACWRInfo(ACWR);
 
   return (
     <View
@@ -98,7 +98,7 @@ export default function AwrsWidget({ awrs }: AwrsWidgetProps) {
             letterSpacing: 1.1,
           }}
         >
-          AWRS
+          ACWR
         </Text>
       </View>
       <Text
