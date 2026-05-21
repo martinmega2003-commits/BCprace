@@ -1,6 +1,11 @@
 data/*.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
+web/muj-next-app/*.sqlite
+web/muj-next-app/*.sqlite-shm
+web/muj-next-app/*.sqlite-wal
 Python/.env
 Python/__pycache__/
 Python/*.pyc
+__pycache__/
+*.pyc
