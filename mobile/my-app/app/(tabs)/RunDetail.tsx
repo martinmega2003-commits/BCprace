@@ -128,6 +128,23 @@ function formatNumber(value: number | null | undefined) {
 
     return value.toFixed(3);
 }
+
+function formatEffort(effort: string | null | undefined) {
+    if (effort === 'easy') {
+        return 'Lehký běh';
+    }
+
+    if (effort === 'steady') {
+        return 'Střední zátěž';
+    }
+
+    if (effort === 'hard') {
+        return 'Náročný běh';
+    }
+
+    return 'Bez hodnocení';
+}
+
 function formatPercent(value: number | null | undefined) {
   if (value == null) {
     return '-';
@@ -227,20 +244,20 @@ function trimpMinuteInfo(value: number | null | undefined) {
 
     if (value < 1) {
         return {
-            text: 'Easy training',
+            text: 'Lehký trénink',
             color: '#16a34a',
         };
     }
 
     if (value < 2.2) {
         return {
-            text: 'Moderate training',
+            text: 'Střední trénink',
             color: '#f59e0b',
         };
     }
 
     return {
-        text: 'Hard training',
+        text: 'Těžký trénink',
         color: '#dc2626',
     };
 }
@@ -634,7 +651,7 @@ async function loadActivity() {
       }}
     >
       <Text style={{ color: '#0f172a', fontSize: 18, fontWeight: '700' }}>
-        AI training insight
+        AI tréninkový insight
       </Text>
 
       {aiTrainingInsight ? (
@@ -654,7 +671,7 @@ async function loadActivity() {
           })}
         >
           <Text style={{ color: '#c2410c', fontSize: 12, fontWeight: '700' }}>
-            {aiLoading ? 'Reloading...' : 'Reload'}
+            {aiLoading ? 'Obnovuji...' : 'Obnovit'}
           </Text>
         </Pressable>
       ) : null}
@@ -713,7 +730,7 @@ async function loadActivity() {
 
         {aiTrainingInsight.effort ? (
           <Text style={{ color: '#475569', fontSize: 15 }}>
-            Narocnost: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{aiTrainingInsight.effort}</Text>
+            Narocnost: <Text style={{ color: '#0f172a', fontWeight: '700' }}>{formatEffort(aiTrainingInsight.effort)}</Text>
           </Text>
         ) : null}
 

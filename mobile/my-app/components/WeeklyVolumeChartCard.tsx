@@ -91,7 +91,7 @@ export default function WeeklyVolumeChartCard({
             fontWeight: '800',
           }}
         >
-          Volume
+          Objem
         </Text>
 
         <View style={{ flexDirection: 'row', gap: 6 }}>
