@@ -50,6 +50,25 @@ export async function GET(req: NextRequest) {
 
         const insertActivityUserStatment = db.prepare("INSERT INTO activities (id, user_id, name, distance, moving_time, elapsed_time, type, start_date, average_cadence, average_speed, max_speed, average_heartrate, max_heartrate, Elevation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?) ON CONFLICT(id) DO UPDATE SET user_id = excluded.user_id, name = excluded.name, distance = excluded.distance, moving_time = excluded.moving_time, elapsed_time = excluded.elapsed_time, type = excluded.type, start_date = excluded.start_date, average_cadence = excluded.average_cadence, average_speed = excluded.average_speed, max_speed = excluded.max_speed, average_heartrate = excluded.average_heartrate, max_heartrate = excluded.max_heartrate, Elevation = excluded.Elevation")
 
+        const stravaActivityIds = activities.map((activity: { id: number }) => activity.id);
+        const oldestFetchedActivity = activities.reduce((oldest: { start_date: string }, activity: { start_date: string }) => {
+            return new Date(activity.start_date) < new Date(oldest.start_date) ? activity : oldest;
+        }, activities[0]);
+        const stalePlaceholders = stravaActivityIds.map(() => "?").join(",");
+        const selectRemovedActivityCandidatesStatement = db.prepare(`
+            SELECT id
+            FROM activities
+            WHERE user_id = ?
+              AND start_date >= ?
+              AND id NOT IN (${stalePlaceholders})
+        `);
+
+        const removedActivityCandidates = selectRemovedActivityCandidatesStatement.all(
+            userRow.user_id,
+            oldestFetchedActivity.start_date,
+            ...stravaActivityIds,
+        ) as { id: number }[];
+
         for (let i = 0; i < activities.length; i++) {
             const activity = activities[i]
             insertActivityUserStatment.run(
@@ -81,5 +100,9 @@ export async function GET(req: NextRequest) {
     await fetch(`${pythonApiUrl}/ACWR?user_id=${userRow.user_id}`)
 
 
-return NextResponse.json({ ok: true, message: "sync probehl" });
+return NextResponse.json({
+    ok: true,
+    message: "sync probehl",
+    removed_activity_candidates: removedActivityCandidates.map((activity) => activity.id),
+});
     }

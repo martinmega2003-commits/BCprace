@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
@@ -12,6 +12,38 @@ export default function LoginScreen() {
    const [isLoading, setIsLoading] = useState(false);
    const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
+   const handleAuthCallback = useCallback((url: string) => {
+      const parsedURL = Linking.parse(url);
+      const SessionID = parsedURL?.queryParams?.session_id;
+
+      if (typeof SessionID !== 'string') {
+         return false;
+      }
+
+      router.replace({
+         pathname: '/(tabs)/dashboard',
+         params: { session_id: SessionID },
+      });
+
+      return true;
+   }, [router]);
+
+   useEffect(() => {
+      const subscription = Linking.addEventListener('url', ({ url }) => {
+         handleAuthCallback(url);
+      });
+
+      Linking.getInitialURL().then((url) => {
+         if (url) {
+            handleAuthCallback(url);
+         }
+      });
+
+      return () => {
+         subscription.remove();
+      };
+   }, [handleAuthCallback]);
+
    const openUrl = async () => {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setIsLoading(true);
@@ -21,23 +53,17 @@ export default function LoginScreen() {
          const URL = `${API_BASE_URL}/api/auth`;
          const result = await WebBrowser.openAuthSessionAsync(URL, 'myapp://auth/callback');
 
-         if (result.type != 'success') {
+         if (result.type !== 'success') {
             setStatusMessage('Prihlaseni bylo zruseno.');
             return;
          }
 
-         const parsedURL = Linking.parse(result.url);
-         const SessionID = parsedURL?.queryParams?.session_id;
+         const handled = handleAuthCallback(result.url);
 
-         if (typeof SessionID != 'string') {
+         if (!handled) {
             setStatusMessage('Nepodarilo se ziskat session.');
             return;
          }
-
-         router.replace({
-            pathname: '/(tabs)/dashboard',
-            params: { session_id: SessionID },
-         });
       } catch (error) {
          console.log('login error:', error);
          setStatusMessage('Prihlaseni selhalo. Zkus to znovu.');
