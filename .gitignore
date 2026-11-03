@@ -15,3 +15,9 @@ Python/__pycache__/
 Python/*.pyc
 __pycache__/
 *.pyc
+
+# Lokalni data a databaze - nikdy necommitovat
+*.sqlite
+*.sqlite.*
+*.db
+*.csv
