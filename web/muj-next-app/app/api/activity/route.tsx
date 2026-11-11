@@ -1,57 +1,84 @@
 import { NextResponse, NextRequest } from "next/server";
-import { db } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
+import { getSessionId, getUserIdFromSession } from "@/lib/session";
 
+// tempo: ulozena hodnota, jinak dopocitat z casu a vzdalenosti
+const paceExpression = `COALESCE(
+    m.pace_min_per_km,
+    CASE WHEN a.distance_m > 0 AND a.moving_time_s IS NOT NULL
+         THEN a.moving_time_s / 60.0 / (a.distance_m / 1000.0) END
+)::float8 AS pace_min_per_km`;
 
 export async function GET(req: NextRequest) {
-    const url = new URL(req.url);
-    const cookieSessionId = req.cookies.get("session_id")?.value;
-    const querySessionId = url.searchParams.get("session_id");
-    const activityId = url.searchParams.get("activity_id");
-    const sessionID = cookieSessionId || querySessionId;
+    const activityId = new URL(req.url).searchParams.get("activity_id");
+    const sessionID = getSessionId(req);
 
-    if (!activityId) {
-    return NextResponse.json({ ok: false, message: "Chybi activityId" });
+    // id musi byt cislo, jinak by databaze vratila chybu
+    if (!activityId || !/^\d+$/.test(activityId)) {
+        return NextResponse.json({ ok: false, message: "Chybi activityId" });
     }
 
     if (!sessionID) {
         return NextResponse.json({ ok: false, message: "Chybi session" });
     }
-    
-    
-    const paceExpression = "CASE WHEN Avg_speed IS NOT NULL THEN Avg_speed WHEN distance IS NOT NULL AND distance > 0 AND moving_time IS NOT NULL THEN moving_time / 60.0 / (distance / 1000.0) ELSE NULL END AS pace_min_per_km";
-    const selectUserStatement = db.prepare("SELECT user_id FROM sessions WHERE id = ?");
-    const SelectActivityStatement = db.prepare(`SELECT id, user_id, name, distance, moving_time, elapsed_time, type, start_date, average_cadence, average_speed, max_speed, average_heartrate, max_heartrate, intensity, trimp, estimated_vo2, ai_badge, ai_headline, ai_summary, ai_effort, ai_risks, ai_actions, ai_updated_at, ${paceExpression}, created_at FROM activities WHERE user_id = ? AND id = ? `)
-    const SelectRecentRunsStatement = db.prepare(`SELECT id, user_id, name, distance, moving_time, elapsed_time, type, start_date, ${paceExpression}, created_at FROM activities WHERE user_id = ? AND type = 'Run' AND id != ? AND distance BETWEEN ? AND ? ORDER BY start_date DESC LIMIT 5`)
 
-    const userRow = selectUserStatement.get(sessionID) as { user_id: number } | undefined;
-
-
-    if (!userRow) {
+    const userId = await getUserIdFromSession(sessionID);
+    if (!userId) {
         return NextResponse.json({ ok: false, message: "Chybi userId" });
     }
-    const user = userRow.user_id
 
-    const Activity = SelectActivityStatement.get(user, activityId) as {distance: number, pace_min_per_km: number | null} | undefined
-    
+    // aktivita + jeji vypocitane metriky + posledni AI hodnoceni tohoto behu
+    const Activity = await queryOne<{ distance: number | null; pace_min_per_km: number | null }>(
+        `SELECT a.id, a.user_id, a.name, a.distance_m AS distance, a.moving_time_s AS moving_time,
+                a.elapsed_time_s AS elapsed_time, initcap(a.sport_type) AS type, a.started_at AS start_date,
+                a.avg_cadence AS average_cadence, a.avg_speed_ms AS average_speed, a.max_speed_ms AS max_speed,
+                a.avg_hr AS average_heartrate, a.max_hr AS max_heartrate,
+                m.intensity, m.trimp, m.estimated_vo2,
+                i.badge AS ai_badge, i.headline AS ai_headline, i.summary AS ai_summary, i.effort AS ai_effort,
+                i.risks::text AS ai_risks, i.actions::text AS ai_actions, i.created_at AS ai_updated_at,
+                ${paceExpression}, a.created_at
+         FROM activities a
+         LEFT JOIN activity_metrics m ON m.activity_id = a.id
+         LEFT JOIN LATERAL (
+             SELECT * FROM ai_insights
+             WHERE activity_id = a.id
+             ORDER BY created_at DESC
+             LIMIT 1
+         ) i ON true
+         WHERE a.user_id = $1 AND a.id = $2`,
+        [userId, activityId],
+    );
+
     if (!Activity) {
         return NextResponse.json({ ok: false, message: "Chybi activity" });
-        }
+    }
 
-    const minDistance = Activity.distance * 0.8 
-    const maxDistance = Activity.distance * 1.2
+    let RecentRuns: { pace_min_per_km: number | null }[] = [];
 
+    if (Activity.distance) {
+        RecentRuns = await query(
+            `SELECT a.id, a.user_id, a.name, a.distance_m AS distance, a.moving_time_s AS moving_time,
+                    a.elapsed_time_s AS elapsed_time, initcap(a.sport_type) AS type, a.started_at AS start_date,
+                    ${paceExpression}, a.created_at
+             FROM activities a
+             LEFT JOIN activity_metrics m ON m.activity_id = a.id
+             WHERE a.user_id = $1 AND a.sport_type = 'run' AND a.id != $2 AND a.distance_m BETWEEN $3 AND $4
+             ORDER BY a.started_at DESC
+             LIMIT 5`,
+            [userId, activityId, Activity.distance * 0.8, Activity.distance * 1.2],
+        );
+    }
 
-    const RecentRuns = SelectRecentRunsStatement.all(user, activityId, minDistance, maxDistance)
-    
-    const RecentPaces = RecentRuns.map((run:any)=> run.pace_min_per_km).filter((pace: number | null): pace is number => pace != null)
+    const RecentPaces = RecentRuns
+        .map((run) => run.pace_min_per_km)
+        .filter((pace): pace is number => pace != null);
 
     if (Activity.pace_min_per_km == null || RecentPaces.length === 0) {
         return NextResponse.json({ ok: true, Activity, RecentRuns, paceBaseline: null, paceDelta: null });
     }
 
-    const paceBaseline = RecentPaces.reduce((sum : number, pace: number ) => sum + pace, 0) / RecentPaces.length
-    const paceDelta = Activity.pace_min_per_km - paceBaseline
+    const paceBaseline = RecentPaces.reduce((sum, pace) => sum + pace, 0) / RecentPaces.length;
+    const paceDelta = Activity.pace_min_per_km - paceBaseline;
 
     return NextResponse.json({ ok: true, Activity, RecentRuns, paceBaseline, paceDelta });
-
 }

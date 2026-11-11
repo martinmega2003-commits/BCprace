@@ -1,28 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { getSessionId, getUserIdFromSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
     const pythonApiUrl = process.env.PYTHON_API_URL ?? "http://127.0.0.1:8000";
 
-    const url = new URL(req.url);
-    const cookieSessionId = req.cookies.get("session_id")?.value;
-    const querySessionId = url.searchParams.get("session_id");
-    const sessionID = cookieSessionId || querySessionId;
-
+    const sessionID = getSessionId(req);
     if (!sessionID) {
         return NextResponse.json({ ok: false, message: "missing sessionID" }, { status: 400 });
     }
 
-    const selectUserStatement = db.prepare("SELECT user_id FROM sessions WHERE id = ?");
-    const userRow = selectUserStatement.get(sessionID) as { user_id: number } | undefined;
-
-    if (!userRow) {
+    const userId = await getUserIdFromSession(sessionID);
+    if (!userId) {
         return NextResponse.json({ ok: false, message: "missing userRow" }, { status: 400 });
     }
 
-    const pythonCall = await fetch(`${pythonApiUrl}/VO2MaxCalcul?user_id=${userRow.user_id}`, {
+    const pythonCall = await fetch(`${pythonApiUrl}/VO2MaxCalcul?user_id=${userId}`, {
         cache: "no-store",
     });
 

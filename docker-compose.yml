@@ -10,6 +10,10 @@ services:
       - "8000:8000"
     environment:
       SQLITE_DB_PATH: /data/strava.sqlite
+      DATABASE_URL: postgresql://bcprace:bcprace_local@db:5432/bcprace
+    depends_on:
+      - db
+
     volumes:
       - ./data:/data
       - ./Python:/app/Python
@@ -23,10 +27,12 @@ services:
       - rebulid01-network
     depends_on:
       - python
+      - db
     env_file:
       - ./web/muj-next-app/.env.local
     environment:
       PYTHON_API_URL: http://python:8000
+      DATABASE_URL: postgresql://bcprace:bcprace_local@db:5432/bcprace
       SQLITE_DB_PATH: /data/strava.sqlite
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
@@ -66,6 +72,23 @@ services:
       - /app/node_modules
       - /app/.expo
 
+  db:
+    image: postgres:18
+    container_name: rebulid01-db
+    networks:
+      - rebulid01-network 
+    environment:
+      POSTGRES_USER: bcprace
+      POSTGRES_PASSWORD: bcprace_local
+      POSTGRES_DB: bcprace
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+
 networks:
   rebulid01-network:
     driver: bridge
+
+volumes:
+    pgdata:

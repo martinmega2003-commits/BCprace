@@ -2,15 +2,15 @@ import json
 
 from fastapi import FastAPI
 import os
-from pathlib import Path
-import sqlite3
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import timedelta
 import math
 from openai import OpenAI
-
+from psycopg.types.json import Jsonb
+from db import get_conn
 from dotenv import load_dotenv
+
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -26,8 +26,32 @@ AZURE_OPENAI_SYSTEM_PROMPT2 = os.getenv("AZURE_OPENAI_SYSTEM_PROMPT2")
 
 
 
-def get_db_path() -> Path:
-    return Path(os.environ.get("SQLITE_DB_PATH", Path(__file__).resolve().parent.parent / "web" / "muj-next-app" / "strava.sqlite"))
+def upsert_user_metrics(conn, user_id: int, **values):
+    """Ulozi vypocitane hodnoty uzivatele (hrr, acwr, ...). Radek vytvori, pokud jeste neexistuje."""
+    columns = ", ".join(values)
+    placeholders = ", ".join(["%s"] * len(values))
+    updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in values)
+    conn.execute(
+        f"""
+        INSERT INTO user_metrics (user_id, {columns}) VALUES (%s, {placeholders})
+        ON CONFLICT (user_id) DO UPDATE SET {updates}, updated_at = now()
+        """,
+        (user_id, *values.values()),
+    )
+
+
+def upsert_activity_metrics(conn, activity_id: int, **values):
+    """Ulozi vypocitane hodnoty aktivity (trimp, intensity, ...). Radek vytvori, pokud jeste neexistuje."""
+    columns = ", ".join(values)
+    placeholders = ", ".join(["%s"] * len(values))
+    updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in values)
+    conn.execute(
+        f"""
+        INSERT INTO activity_metrics (activity_id, {columns}) VALUES (%s, {placeholders})
+        ON CONFLICT (activity_id) DO UPDATE SET {updates}, computed_at = now()
+        """,
+        (activity_id, *values.values()),
+    )
 
 
 def badge_from_status(status: str | None) -> str:
@@ -53,16 +77,12 @@ def badge_from_activity_insight(effort: str | None, risks: list[str]) -> str:
 
 @app.get("/weeklyvolume")
 def read_root(user_id: int):
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    
-    cursor = conn.cursor()
+    with get_conn() as conn:
+        ActivityFromDB = conn.execute(
+            "SELECT started_at, sport_type, distance_m FROM activities WHERE user_id = %s AND sport_type = 'run'",
+            (user_id,),
+        ).fetchall()
 
-    cursor.execute("SELECT start_date, type, distance FROM activities WHERE user_id = ? AND type = 'Run'", (user_id,) )
-
-    ActivityFromDB = cursor.fetchall()
-    conn.close()
 
 
     if not ActivityFromDB:
@@ -90,11 +110,11 @@ def read_root(user_id: int):
         
 
     for activity in activities:
-        
-        distance = activity["distance"]
+
+        distance = activity["distance_m"] or 0
         weekly_volume += distance
         all_km += distance
-        activity_date = datetime.fromisoformat(activity["start_date"].replace("Z", "+00:00")).replace(tzinfo=None)
+        activity_date = activity["started_at"].replace(tzinfo=None)
         activity_dates.append(activity_date)
         iso_calendar = activity_date.isocalendar()
         year = iso_calendar.year
@@ -149,93 +169,66 @@ def read_root(user_id: int):
 
 @app.get("/CalHRmax")
 def read_root(user_id: int):
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    
-    cursor = conn.cursor()
+    with get_conn() as conn:
+        userRow = conn.execute("SELECT birth_date FROM users WHERE id = %s", (user_id,)).fetchone()
 
-    cursor.execute("SELECT birth_date FROM users WHERE id = ?", (user_id,) )
-    userRow = cursor.fetchone()
+        if not userRow:
+            return {"message": "chybi user"}
 
-    if not userRow:
-        return {"message": "chybi user"}
-    
-    birth_date = userRow["birth_date"]
+        # PostgreSQL vraci rovnou datum (typ DATE), neni potreba ho prevadet z textu
+        birthDate = userRow["birth_date"]
 
-    if not birth_date:
-        return {"message": "chybi birth_date"}
-    
-    birthDate = datetime.strptime(birth_date, "%Y-%m-%d")
-    today = datetime.today()
-    UserAge = today.year - birthDate.year
-    if(today.month, today.day) < (birthDate.month, birthDate.day):
-        UserAge -=1
-    
-    predicted_hr_max1 = 220 - UserAge
+        if not birthDate:
+            return {"message": "chybi birth_date"}
 
-    cursor.execute("SELECT max_heartrate FROM activities WHERE user_id = ? AND max_heartrate IS NOT NULL", (user_id,))
-    heartRateRows = cursor.fetchall()
+        today = datetime.today()
+        UserAge = today.year - birthDate.year
+        if (today.month, today.day) < (birthDate.month, birthDate.day):
+            UserAge -= 1
 
-    if not heartRateRows:
-        return {"message": "chybi max_heartrate"}
+        predicted_hr_max1 = 220 - UserAge
 
-    heartRates =[]
+        heartRateRows = conn.execute(
+            "SELECT max_hr FROM activities WHERE user_id = %s AND max_hr IS NOT NULL", (user_id,)
+        ).fetchall()
 
+        if not heartRateRows:
+            return {"message": "chybi max_heartrate"}
 
-    for hearthrate in heartRateRows:        
-        heartRates.append(hearthrate["max_heartrate"])
+        observed_hr_max = max(row["max_hr"] for row in heartRateRows)
 
-    observed_hr_max = max(heartRates)
+        final_hr_max = round(((predicted_hr_max1 ** 2 + observed_hr_max ** 2) / 2) ** 0.5)
 
-    final_hr_max = round(((predicted_hr_max1 ** 2 + observed_hr_max ** 2) / 2) ** 0.5)
-
-    cursor.execute("UPDATE users SET max_heartrate_calculated = ? WHERE id = ?", (final_hr_max, user_id))
-    conn.commit()
-    conn.close()
-
+        result = conn.execute("UPDATE users SET max_hr = %s WHERE id = %s", (final_hr_max, user_id))
 
     return {
-    "vek": UserAge,
-    "observed": observed_hr_max,
-    "predicted": predicted_hr_max1,
-    "FINAL": final_hr_max,
-    "updated_rows": cursor.rowcount,
-}
+        "vek": UserAge,
+        "observed": observed_hr_max,
+        "predicted": predicted_hr_max1,
+        "FINAL": final_hr_max,
+        "updated_rows": result.rowcount,
+    }
 
 
 @app.get("/HRR")
 def read_root(user_id: int):
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    
-    cursor = conn.cursor()
+    with get_conn() as conn:
+        userRow = conn.execute("SELECT max_hr, rest_hr FROM users WHERE id = %s", (user_id,)).fetchone()
 
-    cursor.execute(
-        "SELECT max_heartrate_calculated, rest_heartrate FROM users WHERE id = ?",
-        (user_id,)
-    )
+        if not userRow:
+            return {"message": "chybi user"}
 
-    userRow = cursor.fetchone()
+        max_heartrate = userRow["max_hr"]
+        if max_heartrate is None:
+            return {"message": "chybi maxheartrate"}
 
-    if not userRow:
-        return {"message": "chybi user"}
-    
-    max_heartrate = userRow["max_heartrate_calculated"]
-    if max_heartrate is None:
-        return {"message": "chybi maxheartrate"}
-    
-    rest_heartrate = userRow["rest_heartrate"]
-    if rest_heartrate is None:
-        return {"message": "chybi restheartrate"}
+        rest_heartrate = userRow["rest_hr"]
+        if rest_heartrate is None:
+            return {"message": "chybi restheartrate"}
 
+        result_HRR = max_heartrate - rest_heartrate
 
-    result_HRR = max_heartrate - rest_heartrate
-
-    cursor.execute("UPDATE users SET hrr = ? WHERE id = ?", (result_HRR, user_id))
-    conn.commit()
-    conn.close()
+        upsert_user_metrics(conn, user_id, hrr=result_HRR)
 
 
 
@@ -248,78 +241,60 @@ def read_root(user_id: int):
 
 @app.get("/IntesityCalcul")
 def read_root(user_id: int):
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    
-    cursor = conn.cursor()
+    with get_conn() as conn:
+        userRow = conn.execute(
+            """
+            SELECT u.max_hr, u.rest_hr, m.hrr, m.estimated_vo2max
+            FROM users u LEFT JOIN user_metrics m ON m.user_id = u.id
+            WHERE u.id = %s
+            """,
+            (user_id,),
+        ).fetchone()
 
-    cursor.execute("SELECT max_heartrate_calculated, rest_heartrate, hrr, estimated_vo2max FROM users WHERE id = ?",(user_id,))
+        if not userRow:
+            return {"message": "chybi user"}
 
-    userRow = cursor.fetchone()
+        max_heartrate = userRow["max_hr"]
+        if max_heartrate is None:
+            return {"message": "chybi maxheartrate"}
 
-    if not userRow:
-        return {"message": "chybi user"}
-    
-    max_heartrate = userRow["max_heartrate_calculated"]
-    if max_heartrate is None:
-        return {"message": "chybi maxheartrate"}
-    
-    rest_heartrate = userRow["rest_heartrate"]
-    if rest_heartrate is None:
-        return {"message": "chybi restheartrate"}
+        rest_heartrate = userRow["rest_hr"]
+        if rest_heartrate is None:
+            return {"message": "chybi restheartrate"}
 
-    hrr = userRow["hrr"]
-    if hrr is None:
-        return {"message": "chybi hrr"}
+        hrr = userRow["hrr"]
+        if hrr is None:
+            return {"message": "chybi hrr"}
 
-    estimated_vo2max = userRow["estimated_vo2max"]
-    if estimated_vo2max is None:
-        return {"message": "chybi estimated_vo2max"}
+        estimated_vo2max = userRow["estimated_vo2max"]
+        if estimated_vo2max is None:
+            return {"message": "chybi estimated_vo2max"}
 
-    cursor.execute("SELECT average_heartrate, id FROM activities WHERE user_id = ?",(user_id,))
+        Avghr_rows = conn.execute(
+            "SELECT id, avg_hr, sport_type FROM activities WHERE user_id = %s", (user_id,)
+        ).fetchall()
 
-    Avghr_rows = cursor.fetchall()
+        if not Avghr_rows:
+            return {"message": "chybi Avghr_rows"}
 
-    if not Avghr_rows:
-        return {"message": "chybi Avghr_rows"}
+        intenzita = []
 
-    average_hearrate_rows =[]
+        for Activity in Avghr_rows:
+            if Activity["avg_hr"] is None:
+                continue
 
-    for avgheartrate in Avghr_rows:
-        if avgheartrate["average_heartrate"] == None:
-            continue
-        average_hearrate_rows.append({
-    "id": avgheartrate["id"],
-    "average_heartrate": avgheartrate["average_heartrate"],
-})
-
-    intenzita= []
-
-    for Activity in average_hearrate_rows:
-        intenzita_value = round((Activity["average_heartrate"] - rest_heartrate) / hrr, 3)
-
-        estimated_vo2 = None
-        if estimated_vo2max is not None:
+            intenzita_value = round((Activity["avg_hr"] - rest_heartrate) / hrr, 3)
             estimated_vo2 = round(3.5 + intenzita_value * (estimated_vo2max - 3.5), 3)
 
-        intenzita.append({
-            "id": Activity["id"],
-            "intenzita": intenzita_value,
-            "estimated_vo2": estimated_vo2,
-        })
+            intenzita.append({
+                "id": Activity["id"],
+                "intenzita": intenzita_value,
+                "estimated_vo2": estimated_vo2,
+            })
 
-
-    
-    for oneintenzita in intenzita:
-        cursor.execute(
-            "UPDATE activities SET intensity = ?, estimated_vo2 = ? WHERE id = ? AND type = 'Run'",
-            (oneintenzita["intenzita"], oneintenzita["estimated_vo2"], oneintenzita["id"])
-            )
-
-
-    conn.commit()
-    conn.close()
+            # ukladame jen u behu (stejne jako drive)
+            if Activity["sport_type"] == "run":
+                upsert_activity_metrics(conn, Activity["id"], intensity=intenzita_value, estimated_vo2=estimated_vo2)
 
 
     return {
@@ -333,56 +308,34 @@ def read_root(user_id: int):
 
 @app.get("/Trimp")
 def read_root(user_id: int):
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    
-    cursor = conn.cursor()
+    with get_conn() as conn:
+        userDataRAW = conn.execute("SELECT max_hr, rest_hr FROM users WHERE id = %s", (user_id,)).fetchone()
 
-    cursor.execute("SELECT max_heartrate_calculated, rest_heartrate  FROM users WHERE id= ?", (user_id,))
-    userDataRAW = cursor.fetchone()
+        if not userDataRAW:
+            return {"message": "chybi userData"}
 
-    if not userDataRAW:
-        return {"message": "chybi userData"}
+        ActvityDataRAW = conn.execute(
+            "SELECT id, moving_time_s, avg_hr FROM activities WHERE user_id = %s", (user_id,)
+        ).fetchall()
 
-    cursor.execute("SELECT  moving_time, average_heartrate, id FROM activities WHERE user_id= ?", (user_id,))
-    ActvityDataRAW = cursor.fetchall()
+        if not ActvityDataRAW:
+            return {"message": "chybi ActvityDataRAW"}
 
-    if not ActvityDataRAW:
-        return {"message": "chybi ActvityDataRAW"}
+        HR_rest = userDataRAW["rest_hr"]
+        HR_max = userDataRAW["max_hr"]
 
-    userData = {
-        "max_heartrate_calculated": userDataRAW["max_heartrate_calculated"],
-        "rest_heartrate": userDataRAW["rest_heartrate"],
+        for activity in ActvityDataRAW:
+            if activity["avg_hr"] is None or activity["moving_time_s"] is None:
+                continue
 
-    }
+            # Výpočet TRIMP pro každou aktivitu
+            T = round(activity["moving_time_s"] / 60)  # Přepočet na minuty
+            HR_ex = activity["avg_hr"]
 
+            # Aplikace vzorce pro TRIMP
+            trimp = round(T * ((HR_ex - HR_rest) / (HR_max - HR_rest)) ** 1.92 * 0.64 * math.e, 3)
 
-    for activity in ActvityDataRAW:
-        moving_time_minutes = round(activity["moving_time"] / 60)  # Přepočet na minuty
-        average_heartrate = activity["average_heartrate"]
-        id = activity["id"],
-        if activity["average_heartrate"] is None:
-            continue
-
-        # Výpočet TRIMP pro každou aktivitu
-        id = activity["id"]
-        T = moving_time_minutes
-        HR_ex = average_heartrate
-        HR_rest = userData["rest_heartrate"]
-        HR_max = userData["max_heartrate_calculated"]
-        
-        # Aplikace vzorce pro TRIMP
-        trimp = round(T * ((HR_ex - HR_rest) / (HR_max - HR_rest)) ** 1.92 * 0.64 * math.e, 3)
-        
-
-
-        cursor.execute("UPDATE activities SET trimp = ? WHERE id = ?  ", (trimp, id)) 
-
-
-
-    conn.commit()
-    conn.close()
+            upsert_activity_metrics(conn, activity["id"], trimp=trimp)
 
 
 
@@ -397,56 +350,47 @@ def read_root(user_id: int):
 
 @app.get("/ACWR")
 def read_root(user_id: int):
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    
-    cursor = conn.cursor()
+    with get_conn() as conn:
+        activityRowsRAW = conn.execute(
+            """
+            SELECT m.trimp, a.started_at
+            FROM activities a JOIN activity_metrics m ON m.activity_id = a.id
+            WHERE a.user_id = %s AND m.trimp IS NOT NULL
+            """,
+            (user_id,),
+        ).fetchall()
 
-    cursor.execute("SELECT trimp, start_date FROM activities WHERE user_id = ? AND trimp IS NOT NULL", (user_id,))
-
-    activityRowsRAW = cursor.fetchall()
-    if not activityRowsRAW:
+        if not activityRowsRAW:
             return {"message": "chybi activityRowsRAW"}
 
-    today = datetime.today()
+        today = datetime.today()
 
+        acuteTrimp = []
+        chronicTrimp = []
 
-    acuteTrimp = []
-    chronicTrimp = []
+        for row in activityRowsRAW:
+            activityDate = row["started_at"].replace(tzinfo=None)
 
-    for row in activityRowsRAW:
-        activityDate = datetime.strptime(row["start_date"], "%Y-%m-%dT%H:%M:%SZ")
+            daysAgo = (today - activityDate).days
 
-        daysAgo = (today - activityDate).days
+            if daysAgo <= 7:
+                acuteTrimp.append(row["trimp"])
+            if daysAgo <= 28:
+                chronicTrimp.append(row["trimp"])
 
-        if daysAgo <= 7:
-            acuteTrimp.append(row["trimp"])
-        if daysAgo <=28:
-            chronicTrimp.append(row["trimp"])
+        acuteLoad = sum(acuteTrimp)
 
-    acuteLoad = sum(acuteTrimp)
+        if not chronicTrimp:
+            return {"message": "chybi chronicTrimp"}
 
-    if not chronicTrimp:
-        return {"message": "chybi chronicTrimp"}
+        chronicLoad = sum(chronicTrimp) / 4
+        ACWR = round(acuteLoad / chronicLoad, 3)
 
-    chronicLoad = sum(chronicTrimp) / 4
-    ACWR = round(acuteLoad / chronicLoad, 3)
-
-
-    cursor.execute(
-    "UPDATE users SET awrs = ? WHERE id = ?",
-    (ACWR, user_id))
-    
-    conn.commit()
-    conn.close()
-
-
-
+        upsert_user_metrics(conn, user_id, acwr=ACWR)
 
     return {
         "ACWR": ACWR,
-        "updated_rows": cursor.rowcount,
+        "updated_rows": 1,
     }
 
 
@@ -454,26 +398,22 @@ def read_root(user_id: int):
 
 @app.get("/avg")
 def read_root(user_id: int):
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    
-    cursor = conn.cursor()
+    with get_conn() as conn:
+        ActivityRaw = conn.execute(
+            "SELECT id, distance_m, moving_time_s FROM activities WHERE user_id = %s AND sport_type = 'run'",
+            (user_id,),
+        ).fetchall()
 
-    cursor.execute("SELECT id, distance, moving_time FROM activities WHERE user_id = ? AND type = 'Run'", (user_id,))
-    ActivityRaw = cursor.fetchall()
+        if not ActivityRaw:
+            return {"message": "chybi activityRowsRAW"}
 
-    if not ActivityRaw:
-        return {"message": "chybi activityRowsRAW"}
-
-
-
-    for actvity in ActivityRaw:
-        tempo = round((actvity["moving_time"] / 60) / (actvity["distance"] / 1000), 3)
-        cursor.execute("UPDATE activities SET Avg_speed=? WHERE id=?",(tempo, actvity["id"]))
-
-    conn.commit()
-    conn.close()
+        tempo = None
+        for actvity in ActivityRaw:
+            # beh bez vzdalenosti nebo casu nema tempo (a deleni nulou by spadlo)
+            if not actvity["distance_m"] or not actvity["moving_time_s"]:
+                continue
+            tempo = round((actvity["moving_time_s"] / 60) / (actvity["distance_m"] / 1000), 3)
+            upsert_activity_metrics(conn, actvity["id"], pace_min_per_km=tempo)
 
 
     return {
@@ -489,51 +429,45 @@ def read_root(user_id: int):
     deployment_name = AZURE_OPENAI_DEPLOYMENT
     api_key = AZURE_OPENAI_API_KEY
 
-    twenty_eight_days_ago = (datetime.today() - timedelta(days=28)).isoformat()
+    twenty_eight_days_ago = datetime.today() - timedelta(days=28)
     today = datetime.today()
 
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    
-    
-    cursor = conn.cursor()
+    # 1) cteni z databaze
+    with get_conn() as conn:
+        ActivityRaw = conn.execute(
+            """
+            SELECT a.started_at AS start_date, m.trimp
+            FROM activities a LEFT JOIN activity_metrics m ON m.activity_id = a.id
+            WHERE a.user_id = %s AND a.started_at >= %s
+            ORDER BY a.started_at DESC
+            """,
+            (user_id, twenty_eight_days_ago),
+        ).fetchall()
 
-    cursor.execute("SELECT start_date, trimp FROM activities WHERE user_id = ? AND start_date >= ? ORDER BY start_date DESC", (user_id, twenty_eight_days_ago))
+        if not ActivityRaw:
+            return {"message": "chybi activityRowsRAW"}
 
+        RawUserData = conn.execute(
+            "SELECT acwr AS \"ACWR\", estimated_vo2max FROM user_metrics WHERE user_id = %s", (user_id,)
+        ).fetchone()
 
+        if not RawUserData or RawUserData["ACWR"] is None:
+            return {"message": "chybi ACWR"}
 
-    ActivityRaw = cursor.fetchall()
-
-    if not ActivityRaw:
-        return {"message": "chybi activityRowsRAW"}
+        last_two_activities_raw = conn.execute(
+            "SELECT started_at AS start_date FROM activities WHERE user_id = %s ORDER BY started_at DESC LIMIT 2",
+            (user_id,),
+        ).fetchall()
 
     activities = [dict(row) for row in ActivityRaw]
 
-    JsonActivity = json.dumps(activities, ensure_ascii=False)
-
-    cursor.execute("SELECT awrs AS ACWR, estimated_vo2max FROM users WHERE id = ?", (user_id,))
-
-    RawUserData = cursor.fetchone()
+    # datum neni v JSON primo podporovane -> default=str ho prevede na text
+    JsonActivity = json.dumps(activities, ensure_ascii=False, default=str)
 
     ACWR = RawUserData["ACWR"]
-    
     estimated_vo2max = RawUserData["estimated_vo2max"]
 
-    if not RawUserData:
-        return {"message": "chybi ACWR"}
-
-    cursor.execute(
-        "SELECT start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 2",
-        (user_id,)
-    )
-    last_two_activities_raw = cursor.fetchall()
-    
-        
-    
-    lastActivityDayRaw= activities[0]["start_date"]
-
-    lastActivityDay = datetime.fromisoformat(lastActivityDayRaw.replace("Z", "+00:00")).replace(tzinfo=None)
+    lastActivityDay = activities[0]["start_date"].replace(tzinfo=None)
 
     DaysFromLastActivity = (today - lastActivityDay).days
 
@@ -545,8 +479,8 @@ def read_root(user_id: int):
     ReturningAfterLongBreak = False
 
     if len(last_two_activities_raw) >= 2:
-        last_activity_date = datetime.fromisoformat(last_two_activities_raw[0]["start_date"].replace("Z", "+00:00")).replace(tzinfo=None)
-        previous_activity_date = datetime.fromisoformat(last_two_activities_raw[1]["start_date"].replace("Z", "+00:00")).replace(tzinfo=None)
+        last_activity_date = last_two_activities_raw[0]["start_date"].replace(tzinfo=None)
+        previous_activity_date = last_two_activities_raw[1]["start_date"].replace(tzinfo=None)
 
         GapBetweenLastTwoActivities = (last_activity_date - previous_activity_date).days
 
@@ -612,30 +546,24 @@ def read_root(user_id: int):
     parsed_response["status"] = StatusFromMetrics
 
     ai_badge = badge_from_status(parsed_response.get("status"))
-    ai_headline = parsed_response.get("headline")
-    ai_summary = parsed_response.get("summary")
-    ai_risks = json.dumps(parsed_response.get("risks", []), ensure_ascii=False)
-    ai_actions = json.dumps(parsed_response.get("actions", []), ensure_ascii=False)
-    ai_updated_at = datetime.today().isoformat()
 
-    cursor.execute(
-        """
-        UPDATE users
-        SET ai_status = ?, ai_badge = ?, ai_headline = ?, ai_summary = ?, ai_risks = ?, ai_actions = ?, ai_updated_at = ?
-        WHERE id = ?
-        """,
-        (
-            parsed_response.get("status"),
-            ai_badge,
-            ai_headline,
-            ai_summary,
-            ai_risks,
-            ai_actions,
-            ai_updated_at,
-            user_id,
-        ),
-    )
-    conn.commit()
+    # 2) zapis vysledku - kazde hodnoceni je novy radek, takze zustava i historie
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO ai_insights (user_id, status, badge, headline, summary, risks, actions)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                user_id,
+                parsed_response.get("status"),
+                ai_badge,
+                parsed_response.get("headline"),
+                parsed_response.get("summary"),
+                Jsonb(parsed_response.get("risks", [])),
+                Jsonb(parsed_response.get("actions", [])),
+            ),
+        )
 
 
     return {
@@ -662,95 +590,86 @@ def read_root(user_id: int, activity_id: int):
     deployment_name = AZURE_OPENAI_DEPLOYMENT
     api_key = AZURE_OPENAI_API_KEY
 
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    # 1) cteni z databaze (aliasy AS drzi stejne nazvy, jake AI dostavala drive)
+    with get_conn() as conn:
+        activity_row = conn.execute(
+            """
+            SELECT a.id, a.name, a.distance_m AS distance, a.moving_time_s AS moving_time,
+                   a.elapsed_time_s AS elapsed_time, a.sport_type AS type, a.started_at AS start_date,
+                   a.avg_hr AS average_heartrate, a.max_hr AS max_heartrate,
+                   m.intensity, m.trimp, m.pace_min_per_km, m.estimated_vo2
+            FROM activities a LEFT JOIN activity_metrics m ON m.activity_id = a.id
+            WHERE a.user_id = %s AND a.id = %s
+            """,
+            (user_id, activity_id),
+        ).fetchone()
 
-    cursor.execute(
-        """SELECT id, name, distance, moving_time, elapsed_time, type, start_date,
-                average_heartrate, max_heartrate, intensity, trimp, Avg_speed AS pace_min_per_km, estimated_vo2
-        FROM activities WHERE user_id = ? AND id = ?""",
-        (user_id, activity_id)
-    )
+        if not activity_row:
+            return {"message": "chybi activity"}
 
-    activity_row = cursor.fetchone()
+        metrics_row = conn.execute(
+            "SELECT acwr AS \"ACWR\" FROM user_metrics WHERE user_id = %s", (user_id,)
+        ).fetchone()
 
-    if not activity_row:
-        conn.close()
-        return {"message": "chybi activity"}
+        # posledni hodnoceni celeho uzivatele (activity_id IS NULL)
+        dashboard_row = conn.execute(
+            """
+            SELECT status AS ai_status, badge AS ai_badge, headline AS ai_headline, summary AS ai_summary,
+                   risks AS ai_risks, actions AS ai_actions, created_at AS ai_updated_at
+            FROM ai_insights
+            WHERE user_id = %s AND activity_id IS NULL
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (user_id,),
+        ).fetchone()
+
+        previous_activity_row = conn.execute(
+            """
+            SELECT started_at AS start_date
+            FROM activities
+            WHERE user_id = %s AND started_at < %s
+            ORDER BY started_at DESC
+            LIMIT 1
+            """,
+            (user_id, activity_row["start_date"]),
+        ).fetchone()
+
+        distance = activity_row["distance"]
+        recent_runs_raw = []
+        if distance:
+            recent_runs_raw = conn.execute(
+                """
+                SELECT a.id, a.user_id, a.name, a.distance_m AS distance, a.moving_time_s AS moving_time,
+                       a.elapsed_time_s AS elapsed_time, a.sport_type AS type, a.started_at AS start_date,
+                       m.pace_min_per_km, a.created_at
+                FROM activities a LEFT JOIN activity_metrics m ON m.activity_id = a.id
+                WHERE a.user_id = %s AND a.sport_type = 'run' AND a.id != %s AND a.distance_m BETWEEN %s AND %s
+                ORDER BY a.started_at DESC
+                LIMIT 5
+                """,
+                (user_id, activity_id, distance * 0.8, distance * 1.2),
+            ).fetchall()
 
     activity = dict(activity_row)
-    json_activity = json.dumps(activity, ensure_ascii=False)
+    json_activity = json.dumps(activity, ensure_ascii=False, default=str)
 
-    cursor.execute(
-        """
-        SELECT awrs AS ACWR, ai_status, ai_badge, ai_headline, ai_summary, ai_risks, ai_actions, ai_updated_at
-        FROM users
-        WHERE id = ?
-        """,
-        (user_id,),
-    )
-    raw_ACWR = cursor.fetchone()
+    ACWR = metrics_row["ACWR"] if metrics_row else None
+    dashboard_ai_context = dict(dashboard_row) if dashboard_row else {}
+    json_dashboard_ai_context = json.dumps(dashboard_ai_context, ensure_ascii=False, default=str)
 
-    if not raw_ACWR:
-        conn.close()
-        return {"message": "chybi ACWR"}
-
-    ACWR = raw_ACWR["ACWR"]
-    dashboard_ai_context = {
-        "ai_status": raw_ACWR["ai_status"],
-        "ai_badge": raw_ACWR["ai_badge"],
-        "ai_headline": raw_ACWR["ai_headline"],
-        "ai_summary": raw_ACWR["ai_summary"],
-        "ai_risks": raw_ACWR["ai_risks"],
-        "ai_actions": raw_ACWR["ai_actions"],
-        "ai_updated_at": raw_ACWR["ai_updated_at"],
-    }
-    json_dashboard_ai_context = json.dumps(dashboard_ai_context, ensure_ascii=False)
-
-    distance = activity["distance"]
     pace_min_per_km = activity['pace_min_per_km']
 
-    current_activity_date = datetime.fromisoformat(activity["start_date"].replace("Z", "+00:00")).replace(tzinfo=None)
-
-    cursor.execute(
-        """
-        SELECT start_date
-        FROM activities
-        WHERE user_id = ? AND start_date < ?
-        ORDER BY start_date DESC
-        LIMIT 1
-        """,
-        (user_id, activity["start_date"])
-    )
-    previous_activity_row = cursor.fetchone()
+    current_activity_date = activity["start_date"].replace(tzinfo=None)
 
     GapBeforeThisActivity = None
     ReturningAfterLongBreakForThisRun = False
 
     if previous_activity_row:
-        previous_activity_date = datetime.fromisoformat(previous_activity_row["start_date"].replace("Z", "+00:00")).replace(tzinfo=None)
+        previous_activity_date = previous_activity_row["start_date"].replace(tzinfo=None)
         GapBeforeThisActivity = (current_activity_date - previous_activity_date).days
         if GapBeforeThisActivity >= 14:
             ReturningAfterLongBreakForThisRun = True
-    
-    minDistance = distance * 0.8 
-    maxDistance = distance * 1.2
-
-    cursor.execute(
-        """
-        SELECT id, user_id, name, distance, moving_time, elapsed_time, type, start_date, Avg_speed AS pace_min_per_km, created_at
-        FROM activities
-        WHERE user_id = ? AND type = 'Run' AND id != ? AND distance BETWEEN ? AND ?
-        ORDER BY start_date DESC
-        LIMIT 5
-        """,
-        (user_id, activity_id, minDistance, maxDistance)
-    )
-
-    recent_runs_raw = cursor.fetchall()
-
 
     RecentRuns = [dict(row) for row in recent_runs_raw]
 
@@ -770,7 +689,7 @@ def read_root(user_id: int, activity_id: int):
     else:
         paceDelta = None
     
-    json_recent_runs = json.dumps(RecentRuns, ensure_ascii=False)
+    json_recent_runs = json.dumps(RecentRuns, ensure_ascii=False, default=str)
 
     if paceDelta is None:
         paceVsBaseline = "unknown"
@@ -815,34 +734,25 @@ def read_root(user_id: int, activity_id: int):
 
     parsed_risks = parsed_response.get("risks", [])
     ai_badge = badge_from_activity_insight(parsed_response.get("effort"), parsed_risks)
-    ai_headline = parsed_response.get("headline")
-    ai_summary = parsed_response.get("summary")
-    ai_effort = parsed_response.get("effort")
-    ai_risks = json.dumps(parsed_risks, ensure_ascii=False)
-    ai_actions = json.dumps(parsed_response.get("actions", []), ensure_ascii=False)
-    ai_updated_at = datetime.today().isoformat()
 
-    cursor.execute(
-        """
-        UPDATE activities
-        SET ai_badge = ?, ai_headline = ?, ai_summary = ?, ai_effort = ?, ai_risks = ?, ai_actions = ?, ai_updated_at = ?
-        WHERE id = ? AND user_id = ?
-        """,
-        (
-            ai_badge,
-            ai_headline,
-            ai_summary,
-            ai_effort,
-            ai_risks,
-            ai_actions,
-            ai_updated_at,
-            activity_id,
-            user_id,
-        ),
-    )
-    conn.commit()
-
-    conn.close()
+    # 2) zapis vysledku
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO ai_insights (user_id, activity_id, badge, headline, summary, effort, risks, actions)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                user_id,
+                activity_id,
+                ai_badge,
+                parsed_response.get("headline"),
+                parsed_response.get("summary"),
+                parsed_response.get("effort"),
+                Jsonb(parsed_risks),
+                Jsonb(parsed_response.get("actions", [])),
+            ),
+        )
 
     return {"response": parsed_response}
 
@@ -852,22 +762,22 @@ def read_root(user_id: int, activity_id: int):
 
 @app.get("/VO2MaxCalcul")
 def read_root(user_id: int):
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    conn = get_conn()
 
-    cursor.execute(
-        "SELECT max_heartrate_calculated, hrr, rest_heartrate FROM users WHERE id = ?",
-        (user_id,)
-    )
-    userDataRAW = cursor.fetchone()
+    userDataRAW = conn.execute(
+        """
+        SELECT u.rest_hr, m.hrr
+        FROM users u LEFT JOIN user_metrics m ON m.user_id = u.id
+        WHERE u.id = %s
+        """,
+        (user_id,),
+    ).fetchone()
 
     if not userDataRAW:
         conn.close()
         return {"message": "chybi userData"}
 
-    rest_heartrate = userDataRAW["rest_heartrate"]
+    rest_heartrate = userDataRAW["rest_hr"]
     hrr = userDataRAW["hrr"]
 
     if rest_heartrate is None or hrr is None or hrr <= 0:
@@ -875,17 +785,18 @@ def read_root(user_id: int):
         return {"message": "chybi rest_heartrate nebo hrr"}
 
     def load_candidates(window_days: int):
-        since_date = (datetime.today() - timedelta(days=window_days)).isoformat()
+        since_date = datetime.today() - timedelta(days=window_days)
 
-        cursor.execute(
+        # aliasy AS drzi stare nazvy, aby zbytek vypoctu zustal stejny
+        activity_rows = conn.execute(
             """
-            SELECT moving_time, average_heartrate, distance, average_speed, start_date, Elevation, id
+            SELECT moving_time_s AS moving_time, avg_hr AS average_heartrate, distance_m AS distance,
+                   avg_speed_ms AS average_speed, started_at AS start_date, elevation_gain_m AS "Elevation", id
             FROM activities
-            WHERE user_id = ? AND type = 'Run' AND start_date >= ?
+            WHERE user_id = %s AND sport_type = 'run' AND started_at >= %s
             """,
-            (user_id, since_date)
-        )
-        activity_rows = cursor.fetchall()
+            (user_id, since_date),
+        ).fetchall()
 
         clean_activity = []
 
@@ -952,15 +863,9 @@ def read_root(user_id: int):
 
     EstimatedVO2MaxFinal = max(candidate["EstimatedVO2max"] for candidate in VO2MaxCandidates)
 
-    estimated_vo2max_updated_at = datetime.today().isoformat()
-
-    cursor.execute(
-        "UPDATE users SET estimated_vo2max = ?, estimated_vo2max_updated_at = ? WHERE id = ?",
-        (EstimatedVO2MaxFinal, estimated_vo2max_updated_at, user_id)
-    )
+    upsert_user_metrics(conn, user_id, estimated_vo2max=EstimatedVO2MaxFinal, estimated_vo2max_at=datetime.now().astimezone())
 
     conn.commit()
-
     conn.close()
 
 

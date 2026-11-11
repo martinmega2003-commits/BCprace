@@ -1,40 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-
+import { pool, queryOne } from "@/lib/db";
+import { getSessionId } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
+    const sessionID = getSessionId(req);
+    if (!sessionID) {
+        return NextResponse.json({ ok: false, message: "missing sessionID" }, { status: 400 });
+    }
 
-    const url = new URL(req.url);
-    const cookieSessionId = req.cookies.get("session_id")?.value;
-    const querySessionId = url.searchParams.get("session_id");
-    const sessionID = cookieSessionId || querySessionId;
+    // smazat session a rovnou zjistit, komu patrila
+    const deleted = await queryOne<{ user_id: number }>(
+        "DELETE FROM sessions WHERE id = $1 RETURNING user_id",
+        [sessionID],
+    );
 
+    if (!deleted) {
+        return NextResponse.json({ ok: false, message: "missing userRow" }, { status: 400 });
+    }
 
-  const deleteSessionStatement = db.prepare("DELETE FROM sessions WHERE id = ?")
+    // DOCASNE: vymazat tokeny ke Strave (propojeni uctu zustava, aby se pri dalsim prihlaseni nasel stejny uzivatel)
+    await pool.query(
+        "UPDATE strava_accounts SET access_token = NULL, refresh_token = NULL, expires_at = NULL, updated_at = now() WHERE user_id = $1",
+        [deleted.user_id],
+    );
 
-  const selectUserStatement = db.prepare("SELECT user_id FROM sessions WHERE id=?")
+    const response = NextResponse.json({ ok: true, message: "uspesny logout", sessionID });
+    response.cookies.delete("session_id");
 
-  const deleteUserTokenStatement = db.prepare("DELETE FROM strava_tokens WHERE user_id = ?")
-
-  if(!sessionID){
-    return NextResponse.json({ok: false, message: "missing sessionID"}, {status: 400})
-  }
-
-const UserRow = selectUserStatement.get(sessionID) as { user_id: number } | undefined
- 
-   if(!UserRow){
-    return NextResponse.json({ok: false, message: "missing userRow"}, {status: 400})
-  }
-
-  deleteSessionStatement.run(sessionID);
-  deleteUserTokenStatement.run(UserRow.user_id)
-
-
-
-  const response = NextResponse.json({ok: true,  message: "uspesny logout", sessionID})
-  response.cookies.delete("session_id")
-
-  
-  return response
+    return response;
 }
-  
