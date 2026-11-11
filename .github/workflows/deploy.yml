@@ -1,0 +1,81 @@
+# Automaticke nasazeni do Azure pri kazdem pushi do main.
+# Postup: sestavit image -> nahrat do registry -> aktualizovat Container App.
+name: Deploy do Azure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/muj-next-app/**"
+      - "Python/**"
+      - "infra/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch: # umozni spustit rucne z GitHubu (zalozka Actions)
+
+# nikdy nebezi dve nasazeni najednou
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # GitHub smi vydat "prukaz" pro prihlaseni do Azure (bez hesla)
+  contents: read
+
+env:
+  # Nejsou to hesla, jen identifikatory (bez federated credential v Azure nic nedovoli).
+  AZURE_CLIENT_ID: c127208a-689e-4217-894a-466adaecdd51 # identita id-github
+  AZURE_TENANT_ID: 03e3d621-f48e-467f-8a5a-6b74a23db6c7
+  AZURE_SUBSCRIPTION_ID: 647d2913-b039-457f-9155-51291e506d79
+  REGISTRY: bcpracemega.azurecr.io
+  APP_URL: https://management.azure.com/subscriptions/647d2913-b039-457f-9155-51291e506d79/resourceGroups/rg-bcprace/providers/Microsoft.App/containerApps/bcprace?api-version=2024-03-01
+  # kazda verze dostane jako tag kratke ID commitu -> vzdy vis, co presne bezi
+  TAG: ${{ github.sha }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stahnout kod
+        uses: actions/checkout@v4
+
+      - name: Prihlasit se do Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Prihlasit Docker do registry
+        run: az acr login --name bcpracemega
+
+      - name: Sestavit a nahrat image Python
+        run: |
+          docker build -f Python/Dockerfile.prod -t $REGISTRY/bcprace-python:$TAG Python
+          docker push $REGISTRY/bcprace-python:$TAG
+
+      - name: Sestavit a nahrat image web
+        run: |
+          docker build -f web/muj-next-app/Dockerfile.prod -t $REGISTRY/bcprace-web:$TAG web/muj-next-app
+          docker push $REGISTRY/bcprace-web:$TAG
+
+      - name: Aktualizovat aplikaci v Azure
+        run: |
+          # vezme infra/containerapp.json a jen v nem vymeni image za nove verze
+          jq --arg web "$REGISTRY/bcprace-web:$TAG" --arg py "$REGISTRY/bcprace-python:$TAG" \
+            '(.properties.template.containers[] | select(.name=="web") | .image) = $web
+             | (.properties.template.containers[] | select(.name=="python") | .image) = $py' \
+            infra/containerapp.json > app.json
+          az rest --method put --url "$APP_URL" --body @app.json --output none
+
+      - name: Pockat na dokonceni a overit
+        run: |
+          for i in $(seq 1 30); do
+            STATE=$(az rest --method get --url "$APP_URL" --query properties.provisioningState -o tsv)
+            echo "Stav: $STATE"
+            [ "$STATE" = "Succeeded" ] && break
+            [ "$STATE" = "Failed" ] && exit 1
+            sleep 10
+          done
+          FQDN=$(az rest --method get --url "$APP_URL" --query properties.configuration.ingress.fqdn -o tsv)
+          echo "Aplikace: https://$FQDN"
+          curl --fail --retry 6 --retry-delay 10 --retry-all-errors "https://$FQDN/api/hello"
