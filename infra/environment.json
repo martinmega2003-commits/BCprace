@@ -1,0 +1,12 @@
+{
+  "location": "swedencentral",
+  "properties": {
+    "environmentMode": "WorkloadProfiles",
+    "workloadProfiles": [
+      {
+        "name": "Consumption",
+        "workloadProfileType": "Consumption"
+      }
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+# Lokalni test produkcnich image (stejne jako pobezi v Azure).
+# Image nejdriv sestav:
+#   docker build -f Python\Dockerfile.prod -t bcprace-python Python
+#   docker build -f web\muj-next-app\Dockerfile.prod -t bcprace-web web\muj-next-app
+# Spusteni:
+#   docker compose -f docker-compose.prod.yml up
+
+services:
+  python:
+    image: bcprace-python
+    env_file:
+      - ./Python/.env
+    environment:
+      SQLITE_DB_PATH: /data/strava.sqlite
+    volumes:
+      - ./data:/data
+    ports:
+      - "8000:8000"
+
+  web:
+    image: bcprace-web
+    env_file:
+      - ./web/muj-next-app/.env.local
+    environment:
+      PYTHON_API_URL: http://python:8000
+      SQLITE_DB_PATH: /data/strava.sqlite
+    volumes:
+      - ./data:/data
+    ports:
+      - "3000:3000"
+    depends_on:
+      - python

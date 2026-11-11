@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 export default function LoginScreen() {
-   const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.50.214:3000';
+   const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://172.20.10.5:3000';
    const router = useRouter();
    const [isLoading, setIsLoading] = useState(false);
    const [statusMessage, setStatusMessage] = useState<string | null>(null);

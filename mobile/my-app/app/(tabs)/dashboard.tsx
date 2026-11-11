@@ -80,7 +80,7 @@ function buildHistoryPoints(rows: WeeklyVolumeRow[], range: ChartRange): History
 }
 
 export default function BasicButtonExample() {
-   const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.50.214:3000';
+   const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://172.20.10.5:3000';
 
    const [isMenuOpen, setisMenuOpen] = useState(false);
    const [sessionId, setSessionId] = useState<string | null>(null);

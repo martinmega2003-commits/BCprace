@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 
 export async function GET(){
     const ClientID = process.env.STRAVA_CLIENT_ID;
-    const appBaseUrl = process.env.APP_BASE_URL ?? "http://192.168.50.214:3000";
+    const appBaseUrl = process.env.APP_BASE_URL ?? "http://172.20.10.5:3000";
     const redirectURI = `${appBaseUrl}/api/callback`;
     const state = crypto.randomUUID();
     const StateStatemnt = db.prepare("INSERT INTO oauth_states(state) values(?)")
