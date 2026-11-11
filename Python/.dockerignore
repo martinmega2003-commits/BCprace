@@ -5,3 +5,4 @@ venv
 output
 .env
 .env.*
+tests

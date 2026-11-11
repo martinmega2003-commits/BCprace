@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 
 
 export default function MujProfile() {
-  const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.50.214:3000';
+  const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://172.20.10.5:3000';
   const [profile, setProfile] = useState<{
     username: string;
     profile_medium: string | null;

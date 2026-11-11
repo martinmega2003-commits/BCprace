@@ -296,3 +296,4 @@ Pro obhajobu je vhodne doplnit:
 - screenshoty mobilni aplikace
 - testovaci scenare
 - limity pouzitych dat a AI vystupu
+

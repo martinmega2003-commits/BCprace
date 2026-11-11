@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 
 
 export default function RunDetail(){
-    const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.50.214:3000';
+    const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://172.20.10.5:3000';
     const [aiLoading, setAiLoading] = useState(false);
     const [showLoadMetrics, setShowLoadMetrics] = useState(false);
     const [aiTrainingInsight, setAiTrainingInsight] = useState<{
