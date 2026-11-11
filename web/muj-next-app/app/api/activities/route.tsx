@@ -1,35 +1,27 @@
 import { NextResponse, NextRequest } from "next/server";
-import { db } from "@/lib/db";
-
+import { query } from "@/lib/db";
+import { getSessionId, getUserIdFromSession } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
-    const url = new URL(req.url);
-    const cookieSessionId = req.cookies.get("session_id")?.value;
-    const querySessionId = url.searchParams.get("session_id");
-    const sessionID = cookieSessionId || querySessionId;
-
+    const sessionID = getSessionId(req);
     if (!sessionID) {
         return NextResponse.json({ ok: false, message: "Chybi session" });
     }
 
-
-    const selectUserStatement = db.prepare("SELECT user_id FROM sessions WHERE id = ?");
-    const SelectActivityStatement = db.prepare("SELECT id, name, distance, moving_time, elapsed_time, type, start_date FROM activities WHERE user_id = ? AND type = 'Run' ORDER BY start_date DESC")
-
-    const userRow = selectUserStatement.get(sessionID) as { user_id: number } | undefined;
-
-    if (!userRow) {
+    const userId = await getUserIdFromSession(sessionID);
+    if (!userId) {
         return NextResponse.json({ ok: false, message: "Chybi userId" });
     }
-    const user = userRow.user_id
 
+    // aliasy AS drzi nazvy poli, ktere mobilni aplikace zna ze SQLite
+    const Activies = await query(
+        `SELECT id, name, distance_m AS distance, moving_time_s AS moving_time, elapsed_time_s AS elapsed_time,
+                initcap(sport_type) AS type, started_at AS start_date
+         FROM activities
+         WHERE user_id = $1 AND sport_type = 'run'
+         ORDER BY started_at DESC`,
+        [userId],
+    );
 
-
-
-    const Activies = SelectActivityStatement.all(user)
-
-
-
-    return NextResponse.json({ ok: true, Activies});
-
+    return NextResponse.json({ ok: true, Activies });
 }

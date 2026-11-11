@@ -4,3 +4,4 @@ pandas
 matplotlib
 openai
 python-dotenv
+psycopg[binary]

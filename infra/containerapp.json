@@ -18,6 +18,13 @@
           "server": "bcpracemega.azurecr.io",
           "identity": "/subscriptions/647d2913-b039-457f-9155-51291e506d79/resourceGroups/rg-bcprace/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-bcprace"
         }
+      ],
+      "secrets": [
+        {
+          "name": "database-url",
+          "keyVaultUrl": "https://kv-bcprace-mega.vault.azure.net/secrets/database-url",
+          "identity": "/subscriptions/647d2913-b039-457f-9155-51291e506d79/resourceGroups/rg-bcprace/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-bcprace"
+        }
       ]
     },
     "template": {
@@ -28,22 +35,19 @@
           "resources": { "cpu": 0.5, "memory": "1Gi" },
           "env": [
             { "name": "PYTHON_API_URL", "value": "http://localhost:8000" },
-            { "name": "SQLITE_DB_PATH", "value": "/data/strava.sqlite" }
-          ],
-          "volumeMounts": [{ "volumeName": "data", "mountPath": "/data" }]
+            { "name": "DATABASE_URL", "secretRef": "database-url" }
+          ]
         },
         {
           "name": "python",
           "image": "bcpracemega.azurecr.io/bcprace-python:v1",
           "resources": { "cpu": 0.5, "memory": "1Gi" },
           "env": [
-            { "name": "SQLITE_DB_PATH", "value": "/data/strava.sqlite" }
-          ],
-          "volumeMounts": [{ "volumeName": "data", "mountPath": "/data" }]
+            { "name": "DATABASE_URL", "secretRef": "database-url" }
+          ]
         }
       ],
-      "scale": { "minReplicas": 0, "maxReplicas": 1 },
-      "volumes": [{ "name": "data", "storageType": "EmptyDir" }]
+      "scale": { "minReplicas": 0, "maxReplicas": 1 }
     }
   }
 }
