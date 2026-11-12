@@ -17,6 +17,7 @@ services:
     volumes:
       - ./data:/data
       - ./Python:/app/Python
+      - ./DB:/app/DB
 
   web:
     build:
