@@ -60,6 +60,19 @@ jobs:
             TEST_DATABASE_URL: postgresql://bcprace:bcprace_local@localhost:5432/bcprace_test
         run: pytest -v
 
+      - name: Nainstalovat node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Instalovani knihoven web/muj-next-app
+        working-directory: web/muj-next-app
+        run: npm ci
+
+      - name: Spustit testy webu
+        working-directory: web/muj-next-app
+        run: npm test  
+
       - name: Prihlasit se do Azure
         uses: azure/login@v2
         with:
