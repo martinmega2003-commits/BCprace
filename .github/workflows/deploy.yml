@@ -34,9 +34,31 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    services: 
+      postgres:
+        image: postgres:17
+        env:
+            POSTGRES_USER: bcprace
+            POSTGRES_PASSWORD: bcprace_local
+            POSTGRES_DB: bcprace_test
+        ports:
+          - "5432:5432"
+
     steps:
       - name: Stahnout kod
         uses: actions/checkout@v4
+
+      - name: Testovani..
+        uses: actions/setup-python@v5
+        with:
+            python-version: "3.13"
+      - name: Instalace knihoven
+        run: pip install -r Python/requirements.txt -r Python/requirements-dev.txt
+      - name: Spustit testy...
+        working-directory: Python
+        env:
+            TEST_DATABASE_URL: postgresql://bcprace:bcprace_local@localhost:5432/bcprace_test
+        run: pytest -v
 
       - name: Prihlasit se do Azure
         uses: azure/login@v2
@@ -63,7 +85,7 @@ jobs:
           # vezme infra/containerapp.json a jen v nem vymeni image za nove verze
           jq --arg web "$REGISTRY/bcprace-web:$TAG" --arg py "$REGISTRY/bcprace-python:$TAG" \
             '(.properties.template.containers[] | select(.name=="web") | .image) = $web
-             | (.properties.template.containers[] | select(.name=="python") | .image) = $py' \
+            | (.properties.template.containers[] | select(.name=="python") | .image) = $py' \
             infra/containerapp.json > app.json
           az rest --method put --url "$APP_URL" --body @app.json --output none
 

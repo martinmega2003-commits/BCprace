@@ -20,10 +20,10 @@ CREATE TABLE users (
     avatar_url    TEXT,
     sex           TEXT,
     birth_date    DATE,
-    height_cm     REAL,
-    weight_kg     REAL,
-    rest_hr       REAL,
-    max_hr        REAL,
+    height_cm     DOUBLE PRECISION,
+    weight_kg     DOUBLE PRECISION,
+    rest_hr       DOUBLE PRECISION,
+    max_hr        DOUBLE PRECISION,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -39,13 +39,13 @@ CREATE TABLE activities (
     timezone         TEXT,
     elapsed_time_s   INTEGER,
     moving_time_s    INTEGER,
-    distance_m       REAL,
-    elevation_gain_m REAL,
-    avg_hr           REAL,
-    max_hr           REAL,
-    avg_cadence      REAL,
-    avg_speed_ms     REAL,
-    max_speed_ms     REAL,
+    distance_m       DOUBLE PRECISION,
+    elevation_gain_m DOUBLE PRECISION,
+    avg_hr           DOUBLE PRECISION,
+    max_hr           DOUBLE PRECISION,
+    avg_cadence      DOUBLE PRECISION,
+    avg_speed_ms     DOUBLE PRECISION,
+    max_speed_ms     DOUBLE PRECISION,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_id, source, external_id)    -- opakovany import nic nezduplikuje
 );
@@ -61,9 +61,9 @@ CREATE TABLE sessions (
 -- vypocitane hodnoty o uzivateli (jeden radek na uzivatele)
 CREATE TABLE user_metrics (
     user_id              BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    hrr                  REAL,          -- rezerva srdecni frekvence (max - klidovy tep)
-    acwr                 REAL,          -- pomer akutni a chronicke zateze
-    estimated_vo2max     REAL,
+    hrr                  DOUBLE PRECISION,          -- rezerva srdecni frekvence (max - klidovy tep)
+    acwr                 DOUBLE PRECISION,          -- pomer akutni a chronicke zateze
+    estimated_vo2max     DOUBLE PRECISION,
     estimated_vo2max_at  TIMESTAMPTZ,
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -71,10 +71,10 @@ CREATE TABLE user_metrics (
 -- vypocitane hodnoty k aktivite (jeden radek na aktivitu)
 CREATE TABLE activity_metrics (
     activity_id      BIGINT PRIMARY KEY REFERENCES activities(id) ON DELETE CASCADE,
-    trimp            REAL,
-    intensity        REAL,
-    estimated_vo2    REAL,
-    pace_min_per_km  REAL,
+    trimp            DOUBLE PRECISION,
+    intensity        DOUBLE PRECISION,
+    estimated_vo2    DOUBLE PRECISION,
+    pace_min_per_km  DOUBLE PRECISION,
     computed_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
