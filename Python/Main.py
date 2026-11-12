@@ -3,7 +3,6 @@ import json
 from fastapi import FastAPI
 import os
 from datetime import datetime
-from fastapi.middleware.cors import CORSMiddleware
 from datetime import timedelta
 import math
 from openai import OpenAI
@@ -13,7 +12,6 @@ from dotenv import load_dotenv
 
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 load_dotenv()
 
@@ -568,14 +566,6 @@ def read_root(user_id: int):
 
     return {
         "response": parsed_response,
-        "debug": {
-            "ACWR": ACWR,
-            "DaysFromLastActivity": DaysFromLastActivity,
-            "GapBetweenLastTwoActivities": GapBetweenLastTwoActivities,
-            "ReturningAfterLongBreak": ReturningAfterLongBreak,
-            "UnderTrainingRisk": UnderTrainingRisk,
-            "StatusFromMetrics": StatusFromMetrics,
-        }
     }
 
 
