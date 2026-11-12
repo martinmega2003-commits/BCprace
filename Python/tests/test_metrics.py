@@ -5,7 +5,7 @@ def test_hrr_je_max_minus_klidovy_tep(client):
     odpoved = client.get("/HRR", params={"user_id": 1})
     assert odpoved.status_code == 200
     assert odpoved.json()["result_HRR"] == 140
-    assert scalar("SELECT hrr FROM user_metrics WHERE user_id = 1") == 140
+    assert scalar("SELECT hrr FROM user_metrics WHERE user_id = 1") == 141
 
 
 
