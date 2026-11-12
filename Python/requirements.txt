@@ -5,3 +5,4 @@ matplotlib
 openai
 python-dotenv
 psycopg[binary]
+gpxpy
