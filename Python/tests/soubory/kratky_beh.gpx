@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Garmin Connect"
+     xmlns="http://www.topografix.com/GPX/1/1"
+     xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">
+  <trk>
+    <name>Ranni beh</name>
+    <type>running</type>
+    <trkseg>
+      <trkpt lat="49.2265" lon="17.6670">
+        <ele>230.0</ele>
+        <time>2026-05-20T06:00:00Z</time>
+        <extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>120</gpxtpx:hr></gpxtpx:TrackPointExtension></extensions>
+      </trkpt>
+      <trkpt lat="49.2274" lon="17.6670">
+        <ele>232.0</ele>
+        <time>2026-05-20T06:00:30Z</time>
+        <extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>140</gpxtpx:hr></gpxtpx:TrackPointExtension></extensions>
+      </trkpt>
+      <trkpt lat="49.2283" lon="17.6670">
+        <ele>231.0</ele>
+        <time>2026-05-20T06:01:00Z</time>
+        <extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>160</gpxtpx:hr></gpxtpx:TrackPointExtension></extensions>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
