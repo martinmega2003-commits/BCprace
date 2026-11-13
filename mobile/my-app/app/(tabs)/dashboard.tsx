@@ -8,10 +8,11 @@ import { Alert } from 'react-native';
 import WeeklyVolumeStrip from '@/components/WeeklyVolumeStrip';
 import WeeklyVolumeChartCard from '@/components/WeeklyVolumeChartCard';
 import ACWRWidget from '@/components/AwrsWidget';
-import { useStore } from 'expo-router/build/global-state/router-store';
 import AiInsightCard from '@/components/AiInsightCard';
 import Vo2MaxWidget from '@/components/Vo2MaxWidget';
 import { RefreshControl } from 'react-native';
+import { Platform } from 'react-native';
+import { importovatZAppleHealth } from '@/lib/appleHealthImport';
 
 
 
@@ -100,8 +101,6 @@ export default function BasicButtonExample() {
    } | null>(null);
 
 
-
-
    const [activities, setActivities] = useState<{
       id: number;
       name: string;
@@ -188,6 +187,22 @@ export default function BasicButtonExample() {
       }
       const dataraw = await fetch(`${API_BASE_URL}/api/sync?session_id=${sessionId}`);
       const dataClean = await dataraw.json();
+   }
+
+   async function ImportAppleHealth() {
+      if (!sessionId) {
+         return;
+      }
+
+      setisMenuOpen(false);
+
+      try {
+         const pocet = await importovatZAppleHealth(API_BASE_URL, sessionId);
+         Alert.alert('Import hotov', `Nahrano treninku: ${pocet}`);
+         await ReloadDashboard();
+      } catch (chyba) {
+         Alert.alert('Import selhal', String(chyba));
+      }
    }
 
    async function WeeklyVolume() {
@@ -584,6 +599,45 @@ export default function BasicButtonExample() {
                                  +
                               </Text>
                            </Pressable>
+                            {Platform.OS === 'ios' && (
+                               <Pressable
+                                  onPress={async () => {
+                                     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                     ImportAppleHealth();
+                                  }}
+                                  style={({ pressed }) => ({
+                                     backgroundColor: '#fff7ed',
+                                     borderRadius: 16,
+                                     paddingHorizontal: 15,
+                                     paddingVertical: 13,
+                                     borderWidth: 1,
+                                     borderColor: '#fed7aa',
+                                     opacity: pressed ? 0.75 : 1,
+                                     flexDirection: 'row',
+                                     alignItems: 'center',
+                                     justifyContent: 'space-between',
+                                  })}
+                               >
+                                  <Text
+                                     style={{
+                                        color: '#9a3412',
+                                        fontSize: 14,
+                                        fontWeight: '800',
+                                     }}
+                                  >
+                                     Import z Apple Health
+                                  </Text>
+                                  <Text
+                                     style={{
+                                        color: '#fc4c02',
+                                        fontSize: 16,
+                                        fontWeight: '900',
+                                     }}
+                                  >
+                                     +
+                                  </Text>
+                               </Pressable>
+                            )}
                          </View>
                       </View>
 

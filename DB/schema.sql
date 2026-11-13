@@ -24,6 +24,10 @@ CREATE TABLE users (
     weight_kg     DOUBLE PRECISION,
     rest_hr       DOUBLE PRECISION,
     max_hr        DOUBLE PRECISION,
+    body_fat_pct  DOUBLE PRECISION,          -- procento tuku (vahy s mericim tuku)
+    hrv_ms        DOUBLE PRECISION,          -- variabilita srdecni frekvence (SDNN), ukazatel regenerace
+    vo2max_apple  DOUBLE PRECISION,          -- odhad VO2max od Apple (pro srovnani s nasim estimated_vo2max)
+    profile_synced_at TIMESTAMPTZ,           -- kdy byly udaje naposledy nacteny z Apple Health / Health Connect
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -46,6 +50,10 @@ CREATE TABLE activities (
     avg_cadence      DOUBLE PRECISION,
     avg_speed_ms     DOUBLE PRECISION,
     max_speed_ms     DOUBLE PRECISION,
+    calories_kcal    DOUBLE PRECISION,       -- aktivni spalene kalorie
+    is_indoor        BOOLEAN,                -- beh na pasu / indoor (NULL = nevime)
+    source_app       TEXT,                   -- aplikace, ktera trenink zapsala (napr. "Garmin Connect") -> hledani duplicit
+    device_name      TEXT,                   -- zarizeni, ktere meralo (napr. "Apple Watch")
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_id, source, external_id)    -- opakovany import nic nezduplikuje
 );
