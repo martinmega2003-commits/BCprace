@@ -151,6 +151,15 @@ export default function LoginScreen() {
                >
                   {statusMessage ?? 'Bezpecne prihlaseni pres Strava OAuth.'}
                </Text>
+               {/* docasne: obejiti loginu pro Apple Health spike */}
+               <Pressable
+                  onPress={() => router.push('/healthtest')}
+                  style={{ marginTop: 16, paddingVertical: 12, alignItems: 'center' }}
+               >
+                  <Text style={{ color: '#0f172a', fontSize: 16, fontWeight: '600' }}>
+                     Health test
+                  </Text>
+               </Pressable>
             </View>
          </View>
       </SafeAreaView>
