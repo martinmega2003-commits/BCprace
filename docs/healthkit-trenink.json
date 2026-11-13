@@ -1,0 +1,222 @@
+{
+  "_popis": "Co vraci Apple HealthKit o jednom treninku (knihovna @kingstinct/react-native-healthkit, funkce queryWorkoutSamples). Kazde pole: typ, popis, priklad a kam patri v nasi tabulce activities (null = zatim neukladame).",
+
+  "pole_treninku": {
+    "uuid": {
+      "typ": "string",
+      "popis": "Jednoznacne ID treninku v Apple Health. Nemeni se.",
+      "priklad": "6F1C2B8E-3A4D-4E5F-9A0B-1C2D3E4F5A6B",
+      "do_db": "external_id"
+    },
+    "workoutActivityType": {
+      "typ": "number (enum WorkoutActivityType)",
+      "popis": "Druh sportu jako cislo.",
+      "priklad": 37,
+      "caste_hodnoty": {
+        "37": "running (beh)",
+        "52": "walking (chuze)",
+        "24": "hiking (turistika)",
+        "13": "cycling (kolo)",
+        "46": "swimming (plavani)",
+        "50": "traditionalStrengthTraining (posilovna)",
+        "20": "functionalStrengthTraining (funkcni trenink)",
+        "63": "highIntensityIntervalTraining (HIIT)",
+        "3000": "other (ostatni)"
+      },
+      "do_db": "sport_type (prevest na 'run' / 'walk' / 'ride' ...)"
+    },
+    "startDate": {
+      "typ": "Date",
+      "popis": "Zacatek treninku.",
+      "priklad": "2026-11-12T17:30:00.000Z",
+      "do_db": "started_at"
+    },
+    "endDate": {
+      "typ": "Date",
+      "popis": "Konec treninku.",
+      "priklad": "2026-11-12T18:02:10.000Z",
+      "do_db": null
+    },
+    "duration": {
+      "typ": "Quantity { unit, quantity }",
+      "popis": "Delka treninku. Pozor: neni to cislo, ale objekt s jednotkou. Bez pauz (u Apple Watch = cas aktivniho pohybu).",
+      "priklad": { "unit": "s", "quantity": 1930 },
+      "do_db": "elapsed_time_s (resp. moving_time_s)"
+    },
+    "totalDistance": {
+      "typ": "Quantity | undefined",
+      "popis": "Celkova vzdalenost. U posilovny chybi.",
+      "priklad": { "unit": "m", "quantity": 5230.4 },
+      "do_db": "distance_m"
+    },
+    "totalEnergyBurned": {
+      "typ": "Quantity | undefined",
+      "popis": "Aktivni spalene kalorie.",
+      "priklad": { "unit": "kcal", "quantity": 412 },
+      "do_db": "calories_kcal"
+    },
+    "totalFlightsClimbed": {
+      "typ": "Quantity | undefined",
+      "popis": "Pocet vystoupanych pater. Vetsinou chybi.",
+      "priklad": { "unit": "count", "quantity": 4 },
+      "do_db": null
+    },
+    "totalSwimmingStrokeCount": {
+      "typ": "Quantity | undefined",
+      "popis": "Pocet temp (jen plavani).",
+      "priklad": null,
+      "do_db": null
+    },
+    "hasUndeterminedDuration": {
+      "typ": "boolean",
+      "popis": "Trenink stale bezi / nema konec. U hotovych treninku false.",
+      "priklad": false,
+      "do_db": null
+    },
+    "sourceRevision": {
+      "typ": "SourceRevision",
+      "popis": "Odkud trenink prisel (ktera aplikace ho zapsala). Dulezite pro duplicity: stejny beh muze prijit z Garminu i ze Stravy.",
+      "priklad": {
+        "source": { "name": "Garmin Connect", "bundleIdentifier": "com.garmin.connect.mobile" },
+        "version": "5.12",
+        "operatingSystemVersion": "26.6.2",
+        "productType": "iPhone15,2"
+      },
+      "do_db": "source.name -> source_app"
+    },
+    "device": {
+      "typ": "Device | undefined",
+      "popis": "Zarizeni, ktere trenink namerilo.",
+      "priklad": { "name": "Apple Watch", "manufacturer": "Apple Inc.", "model": "Watch", "hardwareVersion": "Watch6,2", "softwareVersion": "11.0" },
+      "do_db": "name -> device_name"
+    },
+    "metadata": {
+      "typ": "objekt (klic -> hodnota)",
+      "popis": "Doplnkove udaje. Kazda aplikace pise jine. Casto: HKIndoorWorkout (beh na pasu), HKElevationAscended (prevyseni), HKAverageMETs, HKTimeZone, HKWeatherTemperature.",
+      "priklad": {
+        "HKIndoorWorkout": false,
+        "HKElevationAscended": { "unit": "cm", "quantity": 4520 },
+        "HKTimeZone": "Europe/Prague"
+      },
+      "do_db": "HKElevationAscended -> elevation_gain_m (cm / 100), HKTimeZone -> timezone, HKIndoorWorkout -> is_indoor"
+    },
+    "events": {
+      "typ": "WorkoutEvent[] | undefined",
+      "popis": "Udalosti behem treninku: pauza, pokracovani, kola (lap), useky (segment).",
+      "priklad": [
+        { "type": 1, "startDate": "2026-11-12T17:45:00Z", "endDate": "2026-11-12T17:45:00Z" },
+        { "type": 2, "startDate": "2026-11-12T17:46:30Z", "endDate": "2026-11-12T17:46:30Z" }
+      ],
+      "poznamka": "type 1 = pause, 2 = resume, 3 = lap, 4 = marker, 7 = segment",
+      "do_db": null
+    },
+    "activities": {
+      "typ": "WorkoutActivity[] | undefined",
+      "popis": "Casti treninku u multisportu (napr. triatlon: plavani, kolo, beh).",
+      "priklad": [],
+      "do_db": null
+    }
+  },
+
+  "uzivatel": {
+    "_popis": "Udaje o cloveku (ne o treninku) -> tabulka users. Vlastnosti se ctou funkcemi getBiologicalSex() / getDateOfBirth(), mereni pres getMostRecentQuantitySample(identifikator). Kazde potrebuje opravneni v toRead.",
+
+    "pohlavi": {
+      "volani": "getBiologicalSex()",
+      "opravneni": "HKCharacteristicTypeIdentifierBiologicalSex",
+      "vraci": "0 = notSet, 1 = female, 2 = male, 3 = other",
+      "do_db": "sex"
+    },
+    "datum_narozeni": {
+      "volani": "getDateOfBirth()",
+      "opravneni": "HKCharacteristicTypeIdentifierDateOfBirth",
+      "vraci": "Date",
+      "do_db": "birth_date (vek se z nej pocita, neuklada se)"
+    },
+    "vyska": {
+      "volani": "getMostRecentQuantitySample('HKQuantityTypeIdentifierHeight', 'cm')",
+      "vraci": { "unit": "cm", "quantity": 182 },
+      "do_db": "height_cm"
+    },
+    "vaha": {
+      "volani": "getMostRecentQuantitySample('HKQuantityTypeIdentifierBodyMass', 'kg')",
+      "vraci": { "unit": "kg", "quantity": 76.4 },
+      "do_db": "weight_kg"
+    },
+    "klidovy_tep": {
+      "volani": "getMostRecentQuantitySample('HKQuantityTypeIdentifierRestingHeartRate', 'count/min')",
+      "vraci": { "unit": "count/min", "quantity": 52 },
+      "do_db": "rest_hr"
+    },
+    "procento_tuku": {
+      "volani": "getMostRecentQuantitySample('HKQuantityTypeIdentifierBodyFatPercentage', '%')",
+      "vraci": { "unit": "%", "quantity": 0.14 },
+      "poznamka": "Apple vraci podil 0-1, do DB ukladat * 100",
+      "do_db": "body_fat_pct"
+    },
+    "hrv": {
+      "volani": "getMostRecentQuantitySample('HKQuantityTypeIdentifierHeartRateVariabilitySDNN', 'ms')",
+      "vraci": { "unit": "ms", "quantity": 61 },
+      "do_db": "hrv_ms"
+    },
+    "vo2max": {
+      "volani": "getMostRecentQuantitySample('HKQuantityTypeIdentifierVO2Max', 'ml/(kg*min)')",
+      "vraci": { "unit": "ml/(kg*min)", "quantity": 51.2 },
+      "poznamka": "Jen s Apple Watch (nebo kdyz ho zapise Garmin apod.)",
+      "do_db": "vo2max_apple"
+    },
+    "max_tep": {
+      "popis": "Apple Health maximalni tep nema. Pocitame ho sami (endpoint /CalHRmax).",
+      "do_db": "max_hr"
+    },
+    "zamerne_neukladame": "krevni skupina, typ pleti (Fitzpatrick), invalidni vozik, move mode -> pro analyzu behu nepotrebne; GDPR: zdravotni udaje sbirat jen v nezbytne mire"
+  },
+
+  "data_ktera_se_musi_docist_zvlast": {
+    "_popis": "Tohle v treninku primo neni. Ziskas to volanim metody na objektu treninku (await t.metoda(...)). Kazde potrebuje vlastni opravneni ke cteni.",
+
+    "tep": {
+      "volani": "await t.getStatistic('HKQuantityTypeIdentifierHeartRate', 'count/min')",
+      "opravneni": "HKQuantityTypeIdentifierHeartRate v toRead",
+      "vraci": {
+        "averageQuantity": { "unit": "count/min", "quantity": 152.3 },
+        "maximumQuantity": { "unit": "count/min", "quantity": 178 },
+        "minimumQuantity": { "unit": "count/min", "quantity": 98 }
+      },
+      "do_db": "averageQuantity -> avg_hr, maximumQuantity -> max_hr"
+    },
+    "kadence_kroky": {
+      "volani": "await t.getStatistic('HKQuantityTypeIdentifierStepCount')",
+      "opravneni": "HKQuantityTypeIdentifierStepCount v toRead",
+      "vraci": { "sumQuantity": { "unit": "count", "quantity": 5640 } },
+      "do_db": "avg_cadence = kroky / minuty"
+    },
+    "rychlost_behu": {
+      "volani": "await t.getStatistic('HKQuantityTypeIdentifierRunningSpeed', 'm/s')",
+      "opravneni": "HKQuantityTypeIdentifierRunningSpeed v toRead",
+      "vraci": {
+        "averageQuantity": { "unit": "m/s", "quantity": 2.71 },
+        "maximumQuantity": { "unit": "m/s", "quantity": 4.1 }
+      },
+      "do_db": "avg_speed_ms, max_speed_ms (jinak spocitat: distance_m / duration)"
+    },
+    "vsechny_statistiky": {
+      "volani": "await t.getAllStatistics()",
+      "popis": "Vrati vsechny statistiky, ktere k treninku existuji (tep, energie, vzdalenost, kroky...). Dobre na prozkoumani.",
+      "vraci": { "HKQuantityTypeIdentifierHeartRate": "{ averageQuantity, maximumQuantity, ... }" }
+    },
+    "gps_trasa": {
+      "volani": "await t.getWorkoutRoutes()",
+      "opravneni": "HKWorkoutRouteTypeIdentifier v toRead",
+      "vraci": [
+        {
+          "locations": [
+            { "date": "2026-11-12T17:30:01Z", "latitude": 50.0755, "longitude": 14.4378, "altitude": 235.2, "speed": 2.8, "course": 91.5, "horizontalAccuracy": 4.2, "verticalAccuracy": 3.1 }
+          ]
+        }
+      ],
+      "do_db": null,
+      "poznamka": "Tisice bodu na trenink. Na mapu a presne prevyseni. Zatim neukladame (nemame tabulku na body)."
+    }
+  }
+}

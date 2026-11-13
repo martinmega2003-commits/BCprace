@@ -52,7 +52,8 @@ export default function HealthTest() {
       zapis(`Nacteno treninku: ${treninky.length}`);
       for (const t of treninky) {
         const km = t.totalDistance ? (t.totalDistance.quantity / 1000).toFixed(2) : '?';
-        zapis(`- typ ${t.workoutActivityType}, ${t.startDate.toLocaleString()}, ${km} km`);
+        const delka = `${t.duration.quantity.toFixed(0)} ${t.duration.unit}`; // docasne i s jednotkou, at vidime, co chodi
+        zapis(`- typ ${t.workoutActivityType}, ${t.startDate.toLocaleString()}, ${km} km, ${delka}`);
       }
     } catch (e) {
       zapis(`Chyba pri cteni: ${String(e)}`);
@@ -60,7 +61,7 @@ export default function HealthTest() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, padding: 16, gap: 12 }}>
+    <SafeAreaView style={{ flex: 1, padding: 16, gap: 12, backgroundColor: '#f8fafc' }}>
       <Text style={{ fontSize: 24, fontWeight: '700' }}>Health test</Text>
       <Tlacitko text="1. Povolit pristup" onPress={povolit} />
       <Tlacitko text="2. Zapsat testovaci beh" onPress={zapsatTestovaciBeh} />
