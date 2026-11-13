@@ -5,13 +5,18 @@ import { vytvorLimiter } from "@/lib/rateLimit";
 const smiProjit = vytvorLimiter(60,60_000);
 
 export function proxy(request: NextRequest){
-    const ip = request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim() ?? "neznama";   
+    const ip = request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim() ?? "neznama";
     if (!smiProjit(ip)) {
+        console.log(JSON.stringify({
+            udalost: "rate_limit",
+            ip,
+            cesta: request.nextUrl.pathname,
+            cas: new Date().toISOString(),
+        }));
         return NextResponse.json({ ok: false, message: "Prilis mnoho pozadavku" }, { status: 429 });
     }
 
     return NextResponse.next();
-
 }
 
 export const config = {
