@@ -181,14 +181,6 @@ export default function BasicButtonExample() {
       router.replace('/');
    };
 
-   async function Sync() {
-      if(!sessionId){
-         return
-      }
-      const dataraw = await fetch(`${API_BASE_URL}/api/sync?session_id=${sessionId}`);
-      const dataClean = await dataraw.json();
-   }
-
    async function ImportAppleHealth() {
       if (!sessionId) {
          return;
@@ -328,7 +320,6 @@ export default function BasicButtonExample() {
 
    async function ScrollReload() {
       setRefreshing(true);
-      await Sync();
       await ReloadDashboard();
       setRefreshing(false);
 
@@ -417,10 +408,7 @@ export default function BasicButtonExample() {
 
    useEffect(() => {
    if (sessionId != null) {
-      Sync();
       ReloadDashboard()
-
-
    }
    }, [sessionId]);
 

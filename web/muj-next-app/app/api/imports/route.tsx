@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionId, getUserIdFromSession } from "@/lib/session";
 import { pool } from "@/lib/db";
+import { prepocitatMetriky } from "@/lib/metrics";
 
 const POVOLENE_ZDROJE = ["healthkit", "health_connect", "file"];
 
@@ -135,6 +136,8 @@ export async function POST(req: NextRequest) {
             ],
         );
     }
+
+    await prepocitatMetriky(userId);
 
     return NextResponse.json({ ok: true, count: activities.length });
 }

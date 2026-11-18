@@ -1,16 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import * as Haptics from 'expo-haptics';
-import * as WebBrowser from 'expo-web-browser';
+import React, { useCallback, useEffect } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 export default function LoginScreen() {
-   const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://172.20.10.5:3000';
    const router = useRouter();
-   const [isLoading, setIsLoading] = useState(false);
-   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
    const handleAuthCallback = useCallback((url: string) => {
       const parsedURL = Linking.parse(url);
@@ -44,33 +39,6 @@ export default function LoginScreen() {
       };
    }, [handleAuthCallback]);
 
-   const openUrl = async () => {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setIsLoading(true);
-      setStatusMessage('Pripojuji Stravu...');
-
-      try {
-         const URL = `${API_BASE_URL}/api/auth`;
-         const result = await WebBrowser.openAuthSessionAsync(URL, 'myapp://auth/callback');
-
-         if (result.type !== 'success') {
-            setStatusMessage('Prihlaseni bylo zruseno.');
-            return;
-         }
-
-         const handled = handleAuthCallback(result.url);
-
-         if (!handled) {
-            setStatusMessage('Nepodarilo se ziskat session.');
-            return;
-         }
-      } catch (error) {
-         console.log('login error:', error);
-         setStatusMessage('Prihlaseni selhalo. Zkus to znovu.');
-      } finally {
-         setIsLoading(false);
-      }
-   };
 
    return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }}>
@@ -93,7 +61,7 @@ export default function LoginScreen() {
                      marginBottom: 12,
                   }}
                >
-                  STRAVA
+                  BCPRACE
                </Text>
                <Text
                   style={{
@@ -116,40 +84,17 @@ export default function LoginScreen() {
                >
                   Po prihlaseni se hned dostanes ke grafu a svym datum.
                </Text>
-               <Pressable
-                  onPress={openUrl}
-                  disabled={isLoading}
-                  style={{
-                     backgroundColor: isLoading ? '#fdba74' : '#fc4c02',
-                     borderRadius: 18,
-                     paddingVertical: 16,
-                     paddingHorizontal: 18,
-                     alignItems: 'center',
-                  }}
-               >
-                  {isLoading ? (
-                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <ActivityIndicator color="#ffffff" />
-                        <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>
-                           Prihlasuji...
-                        </Text>
-                     </View>
-                  ) : (
-                     <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>
-                        Pokracovat se Stravou
-                     </Text>
-                  )}
-               </Pressable>
+           
                <Text
                   style={{
-                     color: statusMessage ? '#475569' : '#94a3b8',
+                     color: '#94a3b8',
                      fontSize: 14,
                      lineHeight: 20,
                      marginTop: 14,
                      textAlign: 'center',
                   }}
                >
-                  {statusMessage ?? 'Bezpecne prihlaseni pres Strava OAuth.'}
+                  Prihlaseni e-mailem se pripravuje.
                </Text>
                {/* docasne: obejiti loginu pro Apple Health spike */}
                <Pressable

@@ -4,6 +4,8 @@
 -- POZOR: smaze vsechny tabulky i data a vytvori je znovu. Jen pro vyvoj.
 
 -- mazani: nejdriv tabulky, ktere odkazuji na jine
+-- (oauth_states a strava_accounts uz neexistuji, mazou se jen ze starsich databazi,
+--  jinak by DROP TABLE users selhal, protoze strava_accounts na users odkazuje)
 DROP TABLE IF EXISTS oauth_states;
 DROP TABLE IF EXISTS strava_accounts;
 DROP TABLE IF EXISTS ai_insights;
@@ -99,22 +101,4 @@ CREATE TABLE ai_insights (
     risks        JSONB,
     actions      JSONB,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- ===== DOCASNE: prihlaseni pres Stravu. Smaze se, az Stravu odstranime (krok 0). =====
-
--- propojeni uzivatele se Strava uctem (tokeny se pri odhlaseni vymazou, propojeni zustane)
-CREATE TABLE strava_accounts (
-    user_id        BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    athlete_id     BIGINT NOT NULL UNIQUE,
-    access_token   TEXT,
-    refresh_token  TEXT,
-    expires_at     BIGINT,
-    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- ochrana prihlaseni (OAuth state)
-CREATE TABLE oauth_states (
-    state       TEXT PRIMARY KEY,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
