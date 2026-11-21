@@ -132,7 +132,7 @@ const VELIKOST_DAVKY = 500;
 
 // Nacte vsechny treninky z Apple Health a posle je na backend.
 // Vrati pocet odeslanych treninku.
-export async function importovatZAppleHealth(apiBaseUrl: string, sessionId: string): Promise<number> {
+export async function importovatZAppleHealth(apiBaseUrl: string, token: string): Promise<number> {
   await pozadatOOpravneni();
 
   const healthKit = await nactiHealthKit();
@@ -148,9 +148,9 @@ export async function importovatZAppleHealth(apiBaseUrl: string, sessionId: stri
   for (let zacatek = 0; zacatek < aktivity.length; zacatek = zacatek + VELIKOST_DAVKY) {
     const davka = aktivity.slice(zacatek, zacatek + VELIKOST_DAVKY);
 
-    const odpoved = await fetch(`${apiBaseUrl}/api/imports?session_id=${sessionId}`, {
+    const odpoved = await fetch(`${apiBaseUrl}/api/imports`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ source: 'healthkit', activities: davka }),
     });
 

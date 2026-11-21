@@ -1,20 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getSessionId, getUserIdFromSession } from "@/lib/session";
+import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/session";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
     const pythonApiUrl = process.env.PYTHON_API_URL ?? "http://127.0.0.1:8000";
 
-    const sessionID = getSessionId(req);
-    if (!sessionID) {
-        return NextResponse.json({ ok: false, message: "missing sessionID" }, { status: 400 });
-    }
+        const user = await getCurrentUser();
+        if(!user){
+            return NextResponse.json({ ok: false, message: "Nejsi prihlaseny" }, { status: 401 });
+        }
+    
 
-    const userId = await getUserIdFromSession(sessionID);
-    if (!userId) {
-        return NextResponse.json({ ok: false, message: "missing MISSING uSERrOW" }, { status: 400 });
-    }
-
-    const PythonCall = await fetch(`${pythonApiUrl}/ai/?user_id=${userId}`);
+    const PythonCall = await fetch(`${pythonApiUrl}/ai/?user_id=${user.id}`);
     if (!PythonCall.ok) {
         return NextResponse.json({ ok: false, message: "missing PythonCall" }, { status: 400 });
     }

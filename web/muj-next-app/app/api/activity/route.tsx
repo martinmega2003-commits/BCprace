@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import { query, queryOne } from "@/lib/db";
-import { getSessionId, getUserIdFromSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 
 // tempo: ulozena hodnota, jinak dopocitat z casu a vzdalenosti
 const paceExpression = `COALESCE(
@@ -11,20 +11,15 @@ const paceExpression = `COALESCE(
 
 export async function GET(req: NextRequest) {
     const activityId = new URL(req.url).searchParams.get("activity_id");
-    const sessionID = getSessionId(req);
 
     // id musi byt cislo, jinak by databaze vratila chybu
     if (!activityId || !/^\d+$/.test(activityId)) {
-        return NextResponse.json({ ok: false, message: "Chybi activityId" });
+        return NextResponse.json({ ok: false, message: "Chybi activityId" }, { status: 400 });
     }
 
-    if (!sessionID) {
-        return NextResponse.json({ ok: false, message: "Chybi session" });
-    }
-
-    const userId = await getUserIdFromSession(sessionID);
-    if (!userId) {
-        return NextResponse.json({ ok: false, message: "Chybi userId" });
+    const user = await getCurrentUser();
+    if (!user) {
+        return NextResponse.json({ ok: false, message: "Nejsi prihlaseny" }, { status: 401 });
     }
 
     // aktivita + jeji vypocitane metriky + posledni AI hodnoceni tohoto behu
@@ -46,7 +41,7 @@ export async function GET(req: NextRequest) {
              LIMIT 1
          ) i ON true
          WHERE a.user_id = $1 AND a.id = $2`,
-        [userId, activityId],
+        [user.id, activityId],
     );
 
     if (!Activity) {
@@ -65,7 +60,7 @@ export async function GET(req: NextRequest) {
              WHERE a.user_id = $1 AND a.sport_type = 'run' AND a.id != $2 AND a.distance_m BETWEEN $3 AND $4
              ORDER BY a.started_at DESC
              LIMIT 5`,
-            [userId, activityId, Activity.distance * 0.8, Activity.distance * 1.2],
+            [user.id, activityId, Activity.distance * 0.8, Activity.distance * 1.2],
         );
     }
 

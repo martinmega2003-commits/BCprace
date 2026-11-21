@@ -1,6 +1,5 @@
 import { View, Text, Pressable, Image, ScrollView, Modal } from 'react-native';
 import { useState, useEffect } from 'react';
-import { useLocalSearchParams } from 'expo-router';
 import { useRouter } from 'expo-router';
 import RunItem from '@/components/RunItem';
 import * as Haptics from 'expo-haptics';
@@ -85,7 +84,6 @@ export default function BasicButtonExample() {
    const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://172.20.10.5:3000';
 
    const [isMenuOpen, setisMenuOpen] = useState(false);
-   const [sessionId, setSessionId] = useState<string | null>(null);
    const [chartRange, setChartRange] = useState<ChartRange>('12');
    const [historyPeriods, setHistoryPeriods] = useState<{
       label: string;
@@ -164,8 +162,6 @@ export default function BasicButtonExample() {
 
 
    const router = useRouter();
-   const params = useLocalSearchParams();
-   const session = params.session_id;
 
 
 
@@ -174,7 +170,7 @@ export default function BasicButtonExample() {
    const Logout = async () => {
       const URL = `${API_BASE_URL}/api/logout`;
       const token = await nactiToken()
-      const response = await fetch(`${URL}`, {
+      await fetch(`${URL}`, {
          method: 'POST',
          headers: {
             'Content-Type': 'application/json',
@@ -187,14 +183,15 @@ export default function BasicButtonExample() {
    };
 
    async function ImportAppleHealth() {
-      if (!sessionId) {
+      const token = await nactiToken();
+      if (!token) {
          return;
       }
 
       setisMenuOpen(false);
 
       try {
-         const pocet = await importovatZAppleHealth(API_BASE_URL, sessionId);
+         const pocet = await importovatZAppleHealth(API_BASE_URL, token);
          Alert.alert('Import hotov', `Nahrano treninku: ${pocet}`);
          await ReloadDashboard();
       } catch (chyba) {
@@ -203,15 +200,14 @@ export default function BasicButtonExample() {
    }
 
    async function WeeklyVolume() {
-      if (!sessionId) {
+      const token = await nactiToken();
+      if (!token) {
          setHistoryPeriods([]);
          return;
-      }
-
-      if (!sessionId) {
-         return;
       } else {
-         const data = await fetch(`${API_BASE_URL}/api/weeklyvolume?session_id=${sessionId}`);
+         const data = await fetch(`${API_BASE_URL}/api/weeklyvolume`, {
+            headers: { Authorization: `Bearer ${token}` },
+         });
          const WeeklyVolumeData = await data.json();
 
       if (!WeeklyVolumeData.weekly_volume) {
@@ -296,11 +292,14 @@ export default function BasicButtonExample() {
       }
 
    async function LoadVo2Max() {
-      if (!sessionId) {
+      const token = await nactiToken();
+      if (!token) {
          return;
       }
 
-      const rawVo2Max = await fetch(`${API_BASE_URL}/api/vo2max?session_id=${sessionId}`);
+      const rawVo2Max = await fetch(`${API_BASE_URL}/api/vo2max`, {
+         headers: { Authorization: `Bearer ${token}` },
+      });
       if (!rawVo2Max.ok) {
          return;
       }
@@ -315,14 +314,16 @@ export default function BasicButtonExample() {
    }
 
    async function ReloadDashboard() {
-      await LoadProfile()
-
+      await WeeklyVolume();
+      await LoadProfile();
+      await LoadVo2Max();
+      await LoadActivites();
    }
 
 
    async function ScrollReload() {
       setRefreshing(true);
-      await LoadProfile()
+      await ReloadDashboard();
       setRefreshing(false);
 
    }
@@ -339,11 +340,14 @@ export default function BasicButtonExample() {
       setaiLoading(true)
 
       try {
-         if (!sessionId) {
+         const token = await nactiToken();
+         if (!token) {
             return;
          }
 
-         const RawAi = await fetch(`${API_BASE_URL}/api/ai?session_id=${sessionId}`);
+         const RawAi = await fetch(`${API_BASE_URL}/api/ai`, {
+            headers: { Authorization: `Bearer ${token}` },
+         });
          if (!RawAi.ok) {
             return;
          }
@@ -372,24 +376,24 @@ export default function BasicButtonExample() {
       profile?.rest_heartrate == null;
 
    async function MyProfile() {
-      router.push({
-         pathname: '/(tabs)/MujProfile',
-         params: { session_id: sessionId },
-      });
+      router.push('/(tabs)/MujProfile');
    }
 
    async function OneRunInfo(activityId: number) {
       router.push({
          pathname: '/(tabs)/RunDetail',
-         params: { session_id: sessionId, activity_id: activityId },
+         params: { activity_id: activityId },
       });
    }
 
    async function LoadActivites() {
-      if (!sessionId) {
+      const token = await nactiToken();
+      if (!token) {
          return;
       }
-      const RawActivity = await fetch(`${API_BASE_URL}/api/activities?session_id=${sessionId}`);
+      const RawActivity = await fetch(`${API_BASE_URL}/api/activities`, {
+         headers: { Authorization: `Bearer ${token}` },
+      });
       if (!RawActivity.ok) {
          return;
       }
@@ -401,12 +405,6 @@ export default function BasicButtonExample() {
 
       setActivities(Actvity.Activies);
    }
-
-   useEffect(() => {
-      if (session != null && !Array.isArray(session)) {
-         setSessionId(session);
-      }
-   }, [session]);
 
    useEffect(()=>{
       async function ZkontrolujAPrihlas() {
@@ -421,9 +419,7 @@ export default function BasicButtonExample() {
    },[])
 
    useEffect(()=>{
-      if (sessionId != null) {
       WeeklyVolume();
-      }
    },[chartRange])
 
    useEffect(() => {

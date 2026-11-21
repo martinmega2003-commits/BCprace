@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import {View, Text, ScrollView, Pressable } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { router } from "expo-router";
+import { nactiToken } from "@/lib/token";
 import SimilarRunItem from "@/components/SimilarRunItem";
 import * as Haptics from 'expo-haptics';
 
@@ -52,7 +53,6 @@ const [Activity, setActivity] = useState<{
     }[]>([]);
 
         const params = useLocalSearchParams();
-        const sessionId = params.session_id;
         const activityId = params.activity_id;
 
         async  function Back() {
@@ -291,14 +291,17 @@ function totalLoadInfo(value: number | null | undefined) {
 }
 
 async function loadAiTrainingInsight() {
-    if (!sessionId || !activityId || aiLoading) {
+    const token = await nactiToken();
+    if (!token || !activityId || aiLoading) {
         return;
     }
 
     setAiLoading(true);
 
     try {
-        const rawInsight = await fetch(`${API_BASE_URL}/api/aiTraining?session_id=${sessionId}&activity_id=${activityId}`);
+        const rawInsight = await fetch(`${API_BASE_URL}/api/aiTraining?activity_id=${activityId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
         if (!rawInsight.ok) {
             setAiTrainingInsight(null);
             return;
@@ -315,10 +318,13 @@ async function loadAiTrainingInsight() {
 }
 
 async function loadActivity() {
-    if (!sessionId || !activityId) {
+    const token = await nactiToken();
+    if (!token || !activityId) {
     return
     }else{
-        const rawActivity = await fetch(`${API_BASE_URL}/api/activity?session_id=${sessionId}&activity_id=${activityId}`)
+        const rawActivity = await fetch(`${API_BASE_URL}/api/activity?activity_id=${activityId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        })
             if(!rawActivity.ok){return}
         const ActivityJson = await rawActivity.json()
             if (!ActivityJson.ok) {return}
@@ -383,11 +389,8 @@ async function loadActivity() {
 }
 
     useEffect(() =>{
-        if (sessionId != null ) {
-            loadActivity()
-
-        }
-    }, [sessionId, activityId])
+        loadActivity()
+    }, [activityId])
 
     const paceInfo = paceDeltaInfo(Activity?.paceDelta);
     const trimpPerMinute =
@@ -787,7 +790,7 @@ async function loadActivity() {
         onPress={()=>
           router.push({
             pathname:'/(tabs)/RunDetail',
-        params: { session_id: sessionId, activity_id: run.id },
+        params: { activity_id: run.id },
           })
         }
       

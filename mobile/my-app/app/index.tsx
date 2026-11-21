@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
    Alert,
    KeyboardAvoidingView,
@@ -10,10 +10,9 @@ import {
    TextInput,
    View,
 } from 'react-native';
-import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { nactiToken, ulozToken } from "@/lib/token"
+import { ulozToken } from "@/lib/token"
 
 const ORANZOVA = '#fc4c02';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://10.0.2.2:3000';
@@ -34,39 +33,6 @@ export default function LoginScreen() {
    
    // tlacitko jde zmacknout, jen kdyz je vyplneny email i heslo
    const lzePrihlasit = email.trim().length > 0 && heslo.length > 0;
-
-   // DOCASNE: prihlaseni pres odkaz myapp://auth/callback?session_id=... (dokud neni backend loginu)
-   const handleAuthCallback = useCallback((url: string) => {
-      const parsedURL = Linking.parse(url);
-      const SessionID = parsedURL?.queryParams?.session_id;
-
-      if (typeof SessionID !== 'string') {
-         return false;
-      }
-
-      router.replace({
-         pathname: '/(tabs)/dashboard',
-         params: { session_id: SessionID },
-      });
-
-      return true;
-   }, [router]);
-
-   useEffect(() => {
-      const subscription = Linking.addEventListener('url', ({ url }) => {
-         handleAuthCallback(url);
-      });
-
-      Linking.getInitialURL().then((url) => {
-         if (url) {
-            handleAuthCallback(url);
-         }
-      });
-
-      return () => {
-         subscription.remove();
-      };
-   }, [handleAuthCallback]);
 
    async function prihlasit() {
       // uz se prihlasuje -> druhe zavolani (dvojklik, Enter + tuknuti) ignorujeme

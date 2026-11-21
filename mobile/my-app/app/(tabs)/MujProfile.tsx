@@ -1,6 +1,6 @@
 import { Alert, Animated, Image, Keyboard, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
 import { router } from 'expo-router';
+import { nactiToken } from '@/lib/token';
 import { useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 
@@ -28,8 +28,6 @@ export default function MujProfile() {
   } | null>(null);
   const saveToastOffset = useRef(new Animated.Value(12)).current;
   const saveToastOpacity = useRef(new Animated.Value(0)).current;
-  const params = useLocalSearchParams();
-  const sessionId = params.session_id;
 
   async function Back() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -37,10 +35,13 @@ export default function MujProfile() {
   }
 
   async function LoadProfile() {
-    if (!sessionId) {
+    const token = await nactiToken();
+    if (!token) {
       return;
     } else {
-      const profiledata = await fetch(`${API_BASE_URL}/api/me?session_id=${sessionId}`);
+      const profiledata = await fetch(`${API_BASE_URL}/api/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!profiledata.ok) {
         return;
       }
@@ -68,10 +69,12 @@ export default function MujProfile() {
       return;
     }
 
-    const Save = await fetch(`${API_BASE_URL}/api/me?session_id=${sessionId}`, {
+    const token = await nactiToken();
+    const Save = await fetch(`${API_BASE_URL}/api/me`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         sex: sexInput,
@@ -143,10 +146,8 @@ export default function MujProfile() {
   }
 
   useEffect(() => {
-    if (sessionId != null) {
-      LoadProfile();
-    }
-  }, [sessionId]);
+    LoadProfile();
+  }, []);
 
   useEffect(() => {
     if (profile) {

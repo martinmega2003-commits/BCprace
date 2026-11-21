@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionId, getUserIdFromSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 import { pool } from "@/lib/db";
 import { prepocitatMetriky } from "@/lib/metrics";
 
@@ -49,15 +49,11 @@ function chybiPovinnePole(aktivita: ImportActivity): boolean {
 }
 
 export async function POST(req: NextRequest) {
-    const sessionId = getSessionId(req);
-    if (!sessionId) {
-        return NextResponse.json({ ok: false, message: "Chybi session" }, { status: 401 });
+    const user = await getCurrentUser();
+    if (!user) {
+        return NextResponse.json({ ok: false, message: "Nejsi prihlaseny" }, { status: 401 });
     }
-
-    const userId = await getUserIdFromSession(sessionId);
-    if (!userId) {
-        return NextResponse.json({ ok: false, message: "Neplatna nebo vyprsela session" }, { status: 401 });
-    }
+    const userId = user.id;
 
     let body;
     try {

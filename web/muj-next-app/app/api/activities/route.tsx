@@ -1,16 +1,11 @@
-import { NextResponse, NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { getSessionId, getUserIdFromSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 
-export async function GET(req: NextRequest) {
-    const sessionID = getSessionId(req);
-    if (!sessionID) {
-        return NextResponse.json({ ok: false, message: "Chybi session" });
-    }
-
-    const userId = await getUserIdFromSession(sessionID);
-    if (!userId) {
-        return NextResponse.json({ ok: false, message: "Chybi userId" });
+export async function GET() {
+    const user = await getCurrentUser();
+    if (!user) {
+        return NextResponse.json({ ok: false, message: "Nejsi prihlaseny" }, { status: 401 });
     }
 
     // aliasy AS drzi nazvy poli, ktere mobilni aplikace zna ze SQLite
@@ -20,7 +15,7 @@ export async function GET(req: NextRequest) {
          FROM activities
          WHERE user_id = $1 AND sport_type = 'run'
          ORDER BY started_at DESC`,
-        [userId],
+        [user.id],
     );
 
     return NextResponse.json({ ok: true, Activies });

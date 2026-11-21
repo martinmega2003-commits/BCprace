@@ -1,22 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getSessionId, getUserIdFromSession } from "@/lib/session";
+import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
     const pythonApiUrl = process.env.PYTHON_API_URL ?? "http://127.0.0.1:8000";
 
-    const sessionID = getSessionId(req);
-    if (!sessionID) {
-        return NextResponse.json({ ok: false, message: "missing sessionID" }, { status: 400 });
+    const user = await getCurrentUser();
+    if (!user) {
+        return NextResponse.json({ ok: false, message: "Nejsi prihlaseny" }, { status: 401 });
     }
 
-    const userId = await getUserIdFromSession(sessionID);
-    if (!userId) {
-        return NextResponse.json({ ok: false, message: "missing userRow" }, { status: 400 });
-    }
-
-    const pythonCall = await fetch(`${pythonApiUrl}/VO2MaxCalcul?user_id=${userId}`, {
+    const pythonCall = await fetch(`${pythonApiUrl}/VO2MaxCalcul?user_id=${user.id}`, {
         cache: "no-store",
     });
 

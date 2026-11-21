@@ -20,7 +20,7 @@ type ProfileRow = {
     ai_updated_at: string | null;
 };
 
-export async function GET(req: NextRequest) {
+export async function GET() {
     const user = await getCurrentUser();
     if(!user){
         return NextResponse.json({ ok: false, message: "Nejsi prihlaseny" }, { status: 401 });
