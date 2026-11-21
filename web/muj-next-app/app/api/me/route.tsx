@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import { pool, queryOne } from "@/lib/db";
-import { getSessionId, getUserIdFromSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 
 type ProfileRow = {
     username: string;
@@ -21,14 +21,9 @@ type ProfileRow = {
 };
 
 export async function GET(req: NextRequest) {
-    const sessionID = getSessionId(req);
-    if (!sessionID) {
-        return NextResponse.json({ ok: false, message: "Chybi session" });
-    }
-
-    const userId = await getUserIdFromSession(sessionID);
-    if (!userId) {
-        return NextResponse.json({ ok: false, message: "Chybi userId" });
+    const user = await getCurrentUser();
+    if(!user){
+        return NextResponse.json({ ok: false, message: "Nejsi prihlaseny" }, { status: 401 });
     }
 
     // profil + vypocitane metriky + posledni AI hodnoceni celeho uzivatele
@@ -46,7 +41,7 @@ export async function GET(req: NextRequest) {
              LIMIT 1
          ) i ON true
          WHERE u.id = $1`,
-        [userId],
+        [user.id],
     );
 
     if (!profileRow) {
@@ -58,16 +53,11 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
     const pythonApiUrl = process.env.PYTHON_API_URL ?? "http://127.0.0.1:8000";
-
-    const sessionID = getSessionId(req);
-    if (!sessionID) {
-        return NextResponse.json({ ok: false, message: "Chybi session" });
+    const user = await getCurrentUser();
+    if(!user){
+        return NextResponse.json({ ok: false, message: "Nejsi prihlaseny" }, { status: 401 });
     }
 
-    const userId = await getUserIdFromSession(sessionID);
-    if (!userId) {
-        return NextResponse.json({ ok: false, message: "Chybi userid" });
-    }
 
     const body = await req.json();
 
@@ -82,11 +72,11 @@ export async function PATCH(req: NextRequest) {
             orNull(body.birth_date),
             orNull(body.weight_kg),
             orNull(body.rest_heartrate),
-            userId,
+            user.id,
         ],
     );
 
-    await fetch(`${pythonApiUrl}/IntesityCalcul?user_id=${userId}`);
+    await fetch(`${pythonApiUrl}/IntesityCalcul?user_id=${user.id}`);
 
-    return NextResponse.json({ ok: true, message: "vse probehlo ok" });
+    return NextResponse.json({ ok: true, message: "vse probehlo ok" }, body );
 }

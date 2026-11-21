@@ -11,14 +11,23 @@ DROP TABLE IF EXISTS strava_accounts;
 DROP TABLE IF EXISTS ai_insights;
 DROP TABLE IF EXISTS activity_metrics;
 DROP TABLE IF EXISTS user_metrics;
+DROP TABLE IF EXISTS login_attempts;
 DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS activities;
+DROP TABLE IF EXISTS email_verifications;
 DROP TABLE IF EXISTS users;
 
 -- profil uzivatele
 CREATE TABLE users (
     id            BIGSERIAL PRIMARY KEY,
-    username      TEXT NOT NULL UNIQUE,
+    -- e-mail vzdy malymi pismeny ("Martin@Test.cz" a "martin@test.cz" je stejny ucet), CHECK to pohlida
+    email         TEXT NOT NULL UNIQUE CHECK (email = lower(email)),
+    -- NIKDY ne heslo samotne, jen jeho hash (argon2id)
+    password_hash TEXT NOT NULL,
+    -- co smi: kazdy novy ucet je 'user', admina nastavujes rucne v DB
+    role          TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+    email_verified_at TIMESTAMPTZ,
+    username      TEXT NOT NULL,             -- zobrazovane jmeno (muze byt stejne u vic lidi)
     avatar_url    TEXT,
     sex           TEXT,
     birth_date    DATE,
@@ -32,6 +41,15 @@ CREATE TABLE users (
     profile_synced_at TIMESTAMPTZ,           -- kdy byly udaje naposledy nacteny z Apple Health / Health Connect
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- overeni e-mailu: odkaz v e-mailu nese nahodny token, v DB je jen jeho hash
+CREATE TABLE email_verifications (
+    token_hash  TEXT PRIMARY KEY,
+    user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 
 -- namerena data z treninku (nezavisle na zdroji)
 CREATE TABLE activities (
@@ -60,13 +78,28 @@ CREATE TABLE activities (
     UNIQUE (user_id, source, external_id)    -- opakovany import nic nezduplikuje
 );
 
--- prihlaseni
+-- prihlaseni (jeden radek = jedno prihlasene zarizeni)
 CREATE TABLE sessions (
-    id          TEXT PRIMARY KEY,
+    -- klient dostane nahodny token, v DB je jen jeho hash (SHA-256)
+    -- -> kdyby databaze unikla, z hashe se token ziskat neda
+    token_hash  TEXT PRIMARY KEY,
     user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     expires_at  TIMESTAMPTZ NOT NULL,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- rychle hledani vsech sessions uzivatele (napr. "odhlasit ze vsech zarizeni")
+CREATE INDEX sessions_user_id_idx ON sessions (user_id);
+
+-- ochrana prihlaseni: zaznam kazdeho pokusu (podle nej omezime hadani hesla)
+CREATE TABLE login_attempts (
+    id            BIGSERIAL PRIMARY KEY,
+    email         TEXT NOT NULL,             -- i neexistujici e-mail (utocnik zkousi ucty)
+    ip            TEXT NOT NULL,
+    success       BOOLEAN NOT NULL,
+    attempted_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX login_attempts_email_idx ON login_attempts (email, attempted_at);
+CREATE INDEX login_attempts_ip_idx ON login_attempts (ip, attempted_at);
 
 -- vypocitane hodnoty o uzivateli (jeden radek na uzivatele)
 CREATE TABLE user_metrics (

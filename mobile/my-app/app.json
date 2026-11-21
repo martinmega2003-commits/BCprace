@@ -10,7 +10,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.megosek.myapp"
-
     },
     "android": {
       "adaptiveIcon": {
@@ -48,7 +47,8 @@
           "NSHealthShareUsageDescription": "Aplikace čte tvoje tréninky z Apple Health, aby je mohla analyzovat.",
           "NSHealthUpdateUsageDescription": "Aplikace zapisuje tréninky do Apple Health."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

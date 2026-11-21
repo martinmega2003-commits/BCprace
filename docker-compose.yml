@@ -72,6 +72,14 @@ services:
       - ./mobile/my-app:/app
       - /app/node_modules
       - /app/.expo
+  mailpit:
+    image: axllent/mailpit
+    container_name: rebulid01-mail
+    networks:
+      - rebulid01-network
+    ports:
+      - "1025:1025"   # SMTP: sem appka posila e-maily
+      - "8025:8025"   # webova schranka v prohlizeci
 
   db:
     image: postgres:18

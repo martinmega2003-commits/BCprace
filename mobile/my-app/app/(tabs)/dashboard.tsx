@@ -13,7 +13,8 @@ import Vo2MaxWidget from '@/components/Vo2MaxWidget';
 import { RefreshControl } from 'react-native';
 import { Platform } from 'react-native';
 import { importovatZAppleHealth } from '@/lib/appleHealthImport';
-
+import { nactiToken, smazToken } from '@/lib/token';
+import { reload } from 'expo-router/build/global-state/router.js';
 
 
 
@@ -172,13 +173,17 @@ export default function BasicButtonExample() {
 
    const Logout = async () => {
       const URL = `${API_BASE_URL}/api/logout`;
-      const Session = sessionId;
+      const token = await nactiToken()
+      const response = await fetch(`${URL}`, {
+         method: 'POST',
+         headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+         },
+      });
+      await smazToken();
 
-      setSessionId(null);
-      setHistoryPeriods([]);
-
-      await fetch(`${URL}?session_id=${Session}`);
-      router.replace('/');
+      router.replace("/")
    };
 
    async function ImportAppleHealth() {
@@ -238,18 +243,18 @@ export default function BasicButtonExample() {
    }
 
    async function LoadProfile() {
-      if (!sessionId) {
-         return;
-      } else {
-         const profiledata = await fetch(`${API_BASE_URL}/api/me?session_id=${sessionId}`);
-         if (!profiledata.ok) {
-            return;
-         }
+         const token = await nactiToken()
+
+         const profiledata = await fetch(`${API_BASE_URL}/api/me`, {
+            headers: {
+                  Authorization: `Bearer ${token}`,
+            },
+         });
+
          const profileJson = await profiledata.json();
          if (!profileJson.ok) {
             return;
          }
-         console.log("profileJson", profileJson);
 
          let parsedAiRisks: string[] = [];
          let parsedAiActions: string[] = [];
@@ -289,7 +294,6 @@ export default function BasicButtonExample() {
             setAiAnswer(null);
          }
       }
-   }
 
    async function LoadVo2Max() {
       if (!sessionId) {
@@ -311,16 +315,14 @@ export default function BasicButtonExample() {
    }
 
    async function ReloadDashboard() {
-      await WeeklyVolume();
-      await LoadProfile();
-      await LoadVo2Max();
-      await LoadActivites();
+      await LoadProfile()
+
    }
 
 
    async function ScrollReload() {
       setRefreshing(true);
-      await ReloadDashboard();
+      await LoadProfile()
       setRefreshing(false);
 
    }
@@ -406,12 +408,17 @@ export default function BasicButtonExample() {
       }
    }, [session]);
 
-   useEffect(() => {
-   if (sessionId != null) {
-      ReloadDashboard()
-   }
-   }, [sessionId]);
-
+   useEffect(()=>{
+      async function ZkontrolujAPrihlas() {
+         const token = await nactiToken();
+         if (!token){
+            router.replace('/');
+            return;
+         }
+         ReloadDashboard()
+      }
+      ZkontrolujAPrihlas();
+   },[])
 
    useEffect(()=>{
       if (sessionId != null) {
@@ -428,18 +435,9 @@ export default function BasicButtonExample() {
          return;
       }
 
-      Alert.alert(
-  'Chybi udaje',
-  'Dopln datum narozeni, vysku a klidovy tep.',
-  [
-    {
-      text: 'Přidat',
-      onPress: MyProfile,
-    },
-  ]
-);
 
-   }, [profile, isProfileIncomplete]);
+
+   }, [isProfileIncomplete]);
 
 
 

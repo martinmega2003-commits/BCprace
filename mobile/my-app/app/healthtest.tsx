@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  isHealthDataAvailable,
-  queryWorkoutSamples,
-  requestAuthorization,
-  saveWorkoutSample,
-  WorkoutActivityType,
-  WorkoutTypeIdentifier,
-} from '@kingstinct/react-native-healthkit';
+// Knihovna HealthKitu se nacita az pri kliknuti (v Expo Go chybi jeji nativni cast
+// a nacteni pri startu by shodilo celou appku).
+async function nactiHealthKit() {
+  return await import('@kingstinct/react-native-healthkit');
+}
 
 // Testovaci obrazovka pro spike: povolit -> zapsat testovaci beh -> precist treninky.
 export default function HealthTest() {
@@ -19,13 +16,14 @@ export default function HealthTest() {
 
   const povolit = async () => {
     try {
-      if (!isHealthDataAvailable()) {
+      const healthKit = await nactiHealthKit();
+      if (!healthKit.isHealthDataAvailable()) {
         zapis('Health na tomto zarizeni neni dostupne.');
         return;
       }
-      await requestAuthorization({
-        toShare: [WorkoutTypeIdentifier],
-        toRead: [WorkoutTypeIdentifier],
+      await healthKit.requestAuthorization({
+        toShare: [healthKit.WorkoutTypeIdentifier],
+        toRead: [healthKit.WorkoutTypeIdentifier],
       });
       zapis('Opravneni vyzadano.');
     } catch (e) {
@@ -35,9 +33,10 @@ export default function HealthTest() {
 
   const zapsatTestovaciBeh = async () => {
     try {
+      const healthKit = await nactiHealthKit();
       const konec = new Date();
       const zacatek = new Date(konec.getTime() - 30 * 60 * 1000); // pred 30 minutami
-      await saveWorkoutSample(WorkoutActivityType.running, [], zacatek, konec, {
+      await healthKit.saveWorkoutSample(healthKit.WorkoutActivityType.running, [], zacatek, konec, {
         distance: 5000, // metry
       });
       zapis('Testovaci beh (5 km, 30 min) zapsan.');
@@ -48,7 +47,8 @@ export default function HealthTest() {
 
   const nacistTreninky = async () => {
     try {
-      const treninky = await queryWorkoutSamples({ limit: 10, ascending: false });
+      const healthKit = await nactiHealthKit();
+      const treninky = await healthKit.queryWorkoutSamples({ limit: 10, ascending: false });
       zapis(`Nacteno treninku: ${treninky.length}`);
       for (const t of treninky) {
         const km = t.totalDistance ? (t.totalDistance.quantity / 1000).toFixed(2) : '?';

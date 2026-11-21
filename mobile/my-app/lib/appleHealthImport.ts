@@ -1,12 +1,29 @@
-import {
-  isHealthDataAvailable,
-  queryWorkoutSamples,
-  requestAuthorization,
-  WorkoutActivityType,
-  WorkoutProxyTyped,
-  WorkoutTypeIdentifier,
-} from '@kingstinct/react-native-healthkit';
+import { Platform } from 'react-native';
+// "import type" se pri spusteni appky smaze -> knihovna HealthKitu se timto NENACTE.
+import type { WorkoutProxyTyped } from '@kingstinct/react-native-healthkit';
 
+// Knihovnu HealthKitu nacitame az ve chvili, kdy ji opravdu potrebujeme (klik na import).
+// Duvod: v Expo Go a na Androidu jeji nativni cast chybi a nacteni pri startu by shodilo
+// cely dashboard. Takhle spadne jen samotny import a uzivatel dostane srozumitelnou hlasku.
+async function nactiHealthKit() {
+  if (Platform.OS !== 'ios') {
+    throw new Error('Apple Health je dostupne jen na iPhonu.');
+  }
+  try {
+    return await import('@kingstinct/react-native-healthkit');
+  } catch {
+    throw new Error('Apple Health tu neni dostupne (appka bezi v Expo Go, potrebuje vyvojovy build).');
+  }
+}
+
+// Cisla sportu v HealthKitu (enum WorkoutActivityType v knihovne).
+// Nemuzeme ho importovat primo, protoze by se tim nacetla cela knihovna.
+const HEALTHKIT_BEH = 37;
+const HEALTHKIT_CHUZE = 52;
+const HEALTHKIT_TURISTIKA = 24;
+const HEALTHKIT_KOLO = 13;
+const HEALTHKIT_POSILOVNA = 50;
+const HEALTHKIT_FUNKCNI_TRENINK = 20;
 
 export type ImportActivity = {
   external_id: string;
@@ -22,23 +39,23 @@ export type ImportActivity = {
   device_name?: string;
 };
 // Prevede cislo sportu z HealthKitu na nas nazev (stejne nazvy jako u GPX a Stravy).
-export function prevedTypSportu(typZHealthKitu: WorkoutActivityType): string {
-  if (typZHealthKitu === WorkoutActivityType.running) {
+export function prevedTypSportu(typZHealthKitu: number): string {
+  if (typZHealthKitu === HEALTHKIT_BEH) {
     return 'run';
   }
-  if (typZHealthKitu === WorkoutActivityType.walking) {
+  if (typZHealthKitu === HEALTHKIT_CHUZE) {
     return 'walk';
   }
-  if (typZHealthKitu === WorkoutActivityType.hiking) {
+  if (typZHealthKitu === HEALTHKIT_TURISTIKA) {
     return 'hike';
   }
-  if (typZHealthKitu === WorkoutActivityType.cycling) {
+  if (typZHealthKitu === HEALTHKIT_KOLO) {
     return 'ride';
   }
-  if (typZHealthKitu === WorkoutActivityType.traditionalStrengthTraining) {
+  if (typZHealthKitu === HEALTHKIT_POSILOVNA) {
     return 'strength';
   }
-  if (typZHealthKitu === WorkoutActivityType.functionalStrengthTraining) {
+  if (typZHealthKitu === HEALTHKIT_FUNKCNI_TRENINK) {
     return 'strength';
   }
   return 'other';
@@ -99,13 +116,15 @@ export async function doplnTep(trenink: WorkoutProxyTyped, aktivita: ImportActiv
 // Zepta se uzivatele na pristup ke cteni treninku a tepu.
 // iOS ukaze okno jen poprve (a znovu jen pri zadosti o novy typ dat), jinak hned pokracuje.
 export async function pozadatOOpravneni(): Promise<void> {
-  if (!isHealthDataAvailable()) {
+  const healthKit = await nactiHealthKit();
+
+  if (!healthKit.isHealthDataAvailable()) {
     throw new Error('Apple Health neni na tomto zarizeni dostupne.');
   }
 
-  await requestAuthorization({
+  await healthKit.requestAuthorization({
     toShare: [],
-    toRead: [WorkoutTypeIdentifier, 'HKQuantityTypeIdentifierHeartRate'],
+    toRead: [healthKit.WorkoutTypeIdentifier, 'HKQuantityTypeIdentifierHeartRate'],
   });
 }
 
@@ -116,7 +135,8 @@ const VELIKOST_DAVKY = 500;
 export async function importovatZAppleHealth(apiBaseUrl: string, sessionId: string): Promise<number> {
   await pozadatOOpravneni();
 
-  const treninky = await queryWorkoutSamples({ limit: 0 });
+  const healthKit = await nactiHealthKit();
+  const treninky = await healthKit.queryWorkoutSamples({ limit: 0 });
 
   const aktivity: ImportActivity[] = [];
   for (const trenink of treninky) {
