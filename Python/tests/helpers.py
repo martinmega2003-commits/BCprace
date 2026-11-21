@@ -13,9 +13,14 @@ def insert_user(user_id=1, birth_date="2000-01-01", rest_hr=None, max_hr=None,
                 hrr=None, acwr=None, estimated_vo2max=None):
     """Vlozi uzivatele, pripadne i jeho vypocitane metriky (user_metrics)."""
     with _connect() as conn:
+        # email a password_hash jsou ve schematu povinne; testy metrik se neprihlasuji, staci vymyslene hodnoty
         conn.execute(
-            "INSERT INTO users (id, username, birth_date, rest_hr, max_hr) VALUES (%s, %s, %s, %s, %s)",
-            (user_id, f"tester{user_id}", birth_date, rest_hr, max_hr),
+            """
+            INSERT INTO users (id, email, password_hash, username, birth_date, rest_hr, max_hr)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (user_id, f"tester{user_id}@test.cz", "neni-potreba", f"tester{user_id}",
+             birth_date, rest_hr, max_hr),
         )
         if hrr is not None or acwr is not None or estimated_vo2max is not None:
             conn.execute(
