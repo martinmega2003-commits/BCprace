@@ -14,8 +14,14 @@ const registerSchema = z.object({
 
 
 export async function POST(request: Request) {
-      const body = await request.json()
-      const result = registerSchema.safeParse(body)
+    let body
+    try {
+        body = await request.json()
+    } catch {
+        return NextResponse.json({ error: "telo pozadavku neni platny JSON" }, { status: 400 });
+    }
+
+    const result = registerSchema.safeParse(body)
 
     if (!result.success) {
         return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });

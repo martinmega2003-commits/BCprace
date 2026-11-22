@@ -48,7 +48,13 @@
           "NSHealthUpdateUsageDescription": "Aplikace zapisuje tréninky do Apple Health."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Aplikace potřebuje polohu, aby mohla zaznamenat trasu tvého běhu."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

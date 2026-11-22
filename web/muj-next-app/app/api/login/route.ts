@@ -7,13 +7,20 @@ import { BLOKACE_SEKUND, getClientIp, isLoginBlocked, recordLoginAttempt } from 
 
 
 export async function POST(request: Request) {
-    const body = await request.json()
+    let body
+    try {
+        body = await request.json()
+    } catch {
+        return NextResponse.json({ error: "telo pozadavku neni platny JSON" }, { status: 400 });
+    }
+
+    // email i heslo musi byt TEXT (jinak by napr. cislo spadlo na email.trim() -> 500)
     const email = body.email
-    if(!email){
+    if(!email || typeof email !== "string"){
         return NextResponse.json({error:"chybi email"}, {status:400});
     }
     const password = body.password
-    if(!password){
+    if(!password || typeof password !== "string"){
         return NextResponse.json({error:"chybi password"},  {status:400});
     }
     const cleanemail= email.trim().toLowerCase()

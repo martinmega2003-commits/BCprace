@@ -581,6 +581,44 @@ export default function BasicButtonExample() {
                                  +
                               </Text>
                            </Pressable>
+                            <Pressable
+                               onPress={async () => {
+                                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                  setisMenuOpen(false);
+                                  router.push('/beh');
+                               }}
+                               style={({ pressed }) => ({
+                                 backgroundColor: '#fff7ed',
+                                 borderRadius: 16,
+                                 paddingHorizontal: 15,
+                                 paddingVertical: 13,
+                                 borderWidth: 1,
+                                 borderColor: '#fed7aa',
+                                 opacity: pressed ? 0.75 : 1,
+                                 flexDirection: 'row',
+                                 alignItems: 'center',
+                                 justifyContent: 'space-between',
+                              })}
+                           >
+                              <Text
+                                 style={{
+                                    color: '#9a3412',
+                                    fontSize: 14,
+                                    fontWeight: '800',
+                                 }}
+                              >
+                                 Zacit beh
+                              </Text>
+                              <Text
+                                 style={{
+                                    color: '#fc4c02',
+                                    fontSize: 16,
+                                    fontWeight: '900',
+                                 }}
+                              >
+                                 +
+                              </Text>
+                           </Pressable>
                             {Platform.OS === 'ios' && (
                                <Pressable
                                   onPress={async () => {

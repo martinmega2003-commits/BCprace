@@ -5,7 +5,9 @@ import { router } from "expo-router";
 import { nactiToken } from "@/lib/token";
 import SimilarRunItem from "@/components/SimilarRunItem";
 import * as Haptics from 'expo-haptics';
-
+import MapaTrasy from "@/components/MapaTrasy";
+import { nactiBodyBehu } from "@/lib/beh/odeslani";
+import { GpsBod } from "@/lib/beh/vypocty";
 
 export default function RunDetail(){
     const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://172.20.10.5:3000';
@@ -55,6 +57,8 @@ const [Activity, setActivity] = useState<{
         const params = useLocalSearchParams();
         const activityId = params.activity_id;
 
+        const [bodyTrasy, setBodyTrasy] = useState<GpsBod[]>([]);
+        
         async  function Back() {
           await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
           router.back()
@@ -392,6 +396,22 @@ async function loadActivity() {
         loadActivity()
     }, [activityId])
 
+    // trasa behu pro mapu; selhani jen znamena "bez mapy", zbytek detailu to neovlivni
+    useEffect(() => {
+        async function nactiTrasu() {
+            if (!activityId) {
+                return
+            }
+            try {
+                const body = await nactiBodyBehu(Number(activityId))
+                setBodyTrasy(body)
+            } catch {
+                setBodyTrasy([])
+            }
+        }
+        nactiTrasu()
+    }, [activityId])
+
     const paceInfo = paceDeltaInfo(Activity?.paceDelta);
     const trimpPerMinute =
         Activity?.trimp != null && Activity?.mooving_time
@@ -432,6 +452,8 @@ async function loadActivity() {
       Zpet
     </Text>
   </Pressable>
+
+  {bodyTrasy.length > 0 ? <MapaTrasy body={bodyTrasy} /> : null}
 
   <View
     style={{

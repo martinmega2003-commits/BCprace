@@ -13,6 +13,7 @@ DROP TABLE IF EXISTS activity_metrics;
 DROP TABLE IF EXISTS user_metrics;
 DROP TABLE IF EXISTS login_attempts;
 DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS activity_points;
 DROP TABLE IF EXISTS activities;
 DROP TABLE IF EXISTS email_verifications;
 DROP TABLE IF EXISTS users;
@@ -76,6 +77,18 @@ CREATE TABLE activities (
     device_name      TEXT,                   -- zarizeni, ktere meralo (napr. "Apple Watch")
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_id, source, external_id)    -- opakovany import nic nezduplikuje
+);
+
+-- body trasy behu zaznamenaneho v appce (jen body, ktere prosly filtrem)
+CREATE TABLE activity_points (
+    activity_id  BIGINT NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+    seq          INTEGER NOT NULL,              -- poradi bodu 0, 1, 2...
+    recorded_at  TIMESTAMPTZ NOT NULL,
+    lat          DOUBLE PRECISION NOT NULL,
+    lon          DOUBLE PRECISION NOT NULL,
+    accuracy_m   DOUBLE PRECISION,
+    segment      INTEGER NOT NULL DEFAULT 0,    -- po kazde pauze +1
+    PRIMARY KEY (activity_id, seq)
 );
 
 -- prihlaseni (jeden radek = jedno prihlasene zarizeni)
