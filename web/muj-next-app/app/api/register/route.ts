@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 import{ hashPassword } from "@/lib/password"
 import { z } from "zod"
-import { randomBytes, createHash } from "node:crypto";
-import { sendVerificationEmail } from "@/lib/mail";
+import { getClientIp } from "@/lib/login-attempts";
+import { vytvorLimiter } from "@/lib/rateLimit";
+import { posliOvereniEmailu } from "@/lib/verification";
+
+// nejvys 5 registraci za hodinu z jedne IP (kazda posila e-mail a pocita drahy hash hesla)
+const smiRegistrovat = vytvorLimiter(5, 60 * 60_000);
 
 
 const registerSchema = z.object({
@@ -27,6 +31,15 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
     }
 
+    // az po validaci, aby preklep ve formulari neubral pokus
+    const ip = getClientIp(request)
+    if (!smiRegistrovat(ip)) {
+        return NextResponse.json(
+            { error: "příliš mnoho registrací, zkus to za hodinu" },
+            { status: 429, headers: { "Retry-After": "3600" } },
+        );
+    }
+
     const cleanusername = result.data.username
     const cleanemail = result.data.email
     const cleanpassword = result.data.password
@@ -44,25 +57,43 @@ export async function POST(request: Request) {
         if (!user) {
             throw new Error("uživatel se nevytvořil")
         }
-        const verifyToken = randomBytes(32).toString("base64url")
-        const verifyTokenHash = createHash("sha256").update(verifyToken).digest("hex")
-
-        
-        await queryOne(
-            `INSERT INTO email_verifications (token_hash, user_id, expires_at)
-            VALUES ($1, $2, now() + interval '24 hours')`,
-            [verifyTokenHash, user.id],
-        );
-    
-        
-        await sendVerificationEmail(user.email, `http://localhost:3000/api/verify-email?token=${verifyToken}`)
-
+      
+        await posliOvereniEmailu(user.id, user.email)
 
         return NextResponse.json(user, { status: 201 });
         } catch (error) {
             // 23505 = kod chyby PostgreSQL pro porušení UNIQUE (e-mail uz existuje)
             if ((error as { code?: string }).code === "23505") {
-                return NextResponse.json({ error: "účet s tímto e-mailem už existuje" }, { status: 409 });
+                const existujici = await queryOne<{ id: number; email_verified_at: string | null }>(
+                    `SELECT id, email_verified_at FROM users WHERE email = $1`,
+                    [cleanemail],
+                )
+                if (existujici && existujici.email_verified_at !== null) {
+                    return NextResponse.json({ error: "účet s tímto e-mailem už existuje" }, { status: 409 });
+                }
+                // ucet mezitim zmizel -> nechame spadnout jako 500
+                if (!existujici) {
+                    throw error;
+                }
+
+                // neoverený účet přepíšeme novým heslem a jménem (ochrana proti squattingu)
+                await queryOne(
+                    `UPDATE users
+                     SET password_hash = $1, username = $2
+                     WHERE id = $3 AND email_verified_at IS NULL`,
+                    [hashedPassword, cleanusername, existujici.id],
+                )
+
+                // stare overovaci odkazy prestanou platit
+                await queryOne(
+                    `DELETE FROM email_verifications
+                     WHERE user_id = $1`,
+                    [existujici.id],
+                )
+
+                await posliOvereniEmailu(existujici.id, cleanemail)
+
+                return NextResponse.json({ ok: true }, { status: 201 });
             }
             // jina chyba (napriklad nebezi databaze) -> nechame ji spadnout jako 500
             throw error;

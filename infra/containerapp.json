@@ -24,6 +24,11 @@
           "name": "database-url",
           "keyVaultUrl": "https://kv-bcprace-mega.vault.azure.net/secrets/database-url",
           "identity": "/subscriptions/647d2913-b039-457f-9155-51291e506d79/resourceGroups/rg-bcprace/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-bcprace"
+        },
+        {
+          "name": "smtp-password",
+          "keyVaultUrl": "https://kv-bcprace-mega.vault.azure.net/secrets/smtp-password",
+          "identity": "/subscriptions/647d2913-b039-457f-9155-51291e506d79/resourceGroups/rg-bcprace/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-bcprace"
         }
       ]
     },
@@ -35,7 +40,13 @@
           "resources": { "cpu": 0.5, "memory": "1Gi" },
           "env": [
             { "name": "PYTHON_API_URL", "value": "http://localhost:8000" },
-            { "name": "DATABASE_URL", "secretRef": "database-url" }
+            { "name": "DATABASE_URL", "secretRef": "database-url" },
+            { "name": "SMTP_HOST", "value": "smtp.azurecomm.net" },
+            { "name": "SMTP_PORT", "value": "587" },
+            { "name": "SMTP_USER", "value": "bcprace-smtp" },
+            { "name": "SMTP_PASSWORD", "secretRef": "smtp-password" },
+            { "name": "MAIL_FROM", "value": "DoNotReply@78fdb452-03b6-43a0-9c73-a10a13b79dd4.azurecomm.net" },
+            { "name": "APP_BASE_URL", "value": "https://bcprace.thankfulbay-f1b4b803.swedencentral.azurecontainerapps.io" }
           ]
         },
         {
